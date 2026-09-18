@@ -1,0 +1,70 @@
+name: CI
+
+# Pull requests cover feature branches; pushes cover main. Triggering on both
+# for every branch would run the whole suite twice per push.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - uses: extractions/setup-just@v4
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      # Before `just install`, which would re-lock and hide the drift.
+      - run: just check-lockfile
+      - name: Install dependencies
+        # The ruff/mypy/tach hooks run through `uv run`, so the bridge's
+        # virtualenv has to exist before the hooks start.
+        run: just install
+      - run: just lint
+      - run: just check-justfile
+      - run: just check-justfile-user
+      - run: just check-python-version
+
+  version:
+    name: version comes from the git tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The check tags a throwaway clone, so it needs real history.
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - uses: extractions/setup-just@v4
+      - run: just install
+      - run: just check-version-from-tag
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: extractions/setup-just@v4
+      - run: just image-test
+
+  screenshots:
+    name: docs screenshots up to date
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: extractions/setup-just@v4
+      - run: just screenshots-check

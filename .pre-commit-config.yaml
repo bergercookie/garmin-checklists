@@ -1,0 +1,56 @@
+# `just hooks` installs these; `just lint` and CI run them over the whole tree.
+#
+# ruff, mypy and tach all run from the bridge's own locked virtualenv rather
+# than from a pinned mirror repo, so there is exactly one version of each tool
+# in the project and a hook can never disagree with `uv run`.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      # ruff runs from the repo root against the root pyproject.toml, so it
+      # covers the end-to-end harness and the build/check scripts as well as
+      # the bridge. Markdown is in the trigger because ruff formats the Python
+      # blocks inside docs too.
+      #
+      # This is also the pyupgrade hook: ruff's `UP` rules are a reimplementation
+      # of pyupgrade, and `target-version = "py314"` in the root pyproject.toml
+      # is what tells them how new the syntax may be. Running asottile/pyupgrade
+      # alongside would be a second tool doing the same job, pinned to a
+      # different version.
+      - id: ruff-check
+        name: ruff (lint + pyupgrade)
+        entry: uv run --project bridge ruff check --fix .
+        language: system
+        files: ^(bridge|e2e|tools)/.*\.py$
+        pass_filenames: false
+      - id: ruff-format
+        name: ruff (format)
+        entry: uv run --project bridge ruff format .
+        language: system
+        files: (^(bridge|e2e|tools)/.*\.py$|\.md$)
+        pass_filenames: false
+      # Also e2e and tools, not just bridge: see the comment on
+      # [tool.mypy].files in bridge/pyproject.toml for why.
+      - id: mypy
+        name: mypy (strict)
+        entry: bash -c 'cd bridge && uv run mypy'
+        language: system
+        files: ^(bridge|e2e|tools)/.*\.py$
+        pass_filenames: false
+      - id: tach
+        name: tach (module boundaries)
+        entry: bash -c 'cd bridge && uv run tach check'
+        language: system
+        files: ^bridge/.*\.py$
+        pass_filenames: false

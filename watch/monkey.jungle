@@ -1,0 +1,5 @@
+project.manifest = manifest.xml
+
+# Device-specific resources are picked up automatically from resources-<device>
+# directories, which is how the Descent G2 gets its 60x60 launcher icon where
+# the fenix 7 family wants 40x40.

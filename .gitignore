@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Bridge runtime state
+bridge/data/
+*.json.tmp
+
+# Connect IQ build output
+build/
+*.prg
+*.prg.debug.xml
+*.iq
+
+# Tooling
+.devbox/
+
+# Local compose secrets
+.env
+
+# Personal just recipes (see justfile.user.example)
+justfile.user
+
+# Simulator screenshots from just watch-e2e
+build/simulator-screenshots/
+
+# Sphinx build output
+docs/_build/
+.envrc
+
+# Claude Code's own local state: isolated worktrees it creates for background
+# subagents, and any other session-local scratch space it keeps here.
+.claude/

@@ -1,0 +1,33 @@
+# Python tooling configuration that spans more than one directory.
+#
+# ruff has to cover bridge/, e2e/ and tools/, and it resolves configuration by
+# walking up from each file to the nearest pyproject.toml that actually
+# contains a [tool.ruff] table -- bridge/pyproject.toml has none, so this one
+# governs the whole repository. Everything scoped to the bridge package itself
+# (pytest, coverage, mypy, tach, dependencies) lives in bridge/pyproject.toml,
+# next to the code it configures.
+#
+# There is deliberately no [project] table here: this is not a package.
+#
+# Note that ruff also formats Python code blocks inside Markdown, so the
+# snippets in README.md and docs/ are held to the same style as the source.
+# Fenced blocks in other languages (bash, yaml, monkeyc) are left alone.
+
+[tool.ruff]
+line-length = 100
+src = ["bridge/src", "bridge/tests", "e2e", "tools"]
+# ruff normally reads the floor from `project.requires-python`, but this file has
+# no [project] table, so it has to be stated. Keep it in step with
+# bridge/pyproject.toml; `just check-python-version` fails the build if it drifts.
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "ANN", "PTH", "ARG"]
+ignore = ["ANN401"]
+
+[tool.ruff.lint.per-file-ignores]
+# Holds markup copied verbatim out of a Trilium note. Reflowing it to fit would
+# make it no longer the thing that reproduced the bug.
+"bridge/tests/test_trilium_notes.py" = ["E501"]
+# The harness is a script: it shells out, prints, and catches broadly on purpose.
+"e2e/*" = ["S603", "S607"]

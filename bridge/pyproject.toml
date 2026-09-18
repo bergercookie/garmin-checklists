@@ -1,0 +1,96 @@
+[project]
+name = "checklists-bridge"
+# Set from the git tag at build time by hatch-vcs -- see [tool.hatch.version].
+dynamic = ["version"]
+description = "Bridge service that turns third-party task lists into checklists for the Garmin Checklists watch app"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "jinja2>=3.1",
+    "pydantic>=2.13.5",
+    "python-multipart>=0.0.9",
+    "uvicorn[standard]>=0.30",
+]
+
+[project.scripts]
+checklists-bridge = "checklists_bridge.__main__:main"
+
+[dependency-groups]
+# Building the documentation. Kept out of `dev` so a normal sync stays small.
+docs = [
+    "furo>=2024.8",
+    "myst-parser>=4.0",
+    "sphinx>=8.1",
+]
+dev = [
+    "mypy>=1.11",
+    "playwright>=1.63.0",
+    "pytest>=8.3",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.6",
+    "ruff>=0.6",
+    "tach>=0.16",
+]
+
+[build-system]
+# Upper-bounded because these are fetched from PyPI at build time and are not in
+# uv.lock, so a new major would break a release with no change here.
+requires = ["hatchling>=1.27,<2", "hatch-vcs>=0.4,<1"]
+build-backend = "hatchling.build"
+
+# The version comes from `git describe`, so tagging is the only release action:
+# tag v1.2.0 and the wheel, the Docker image, the /healthz response and the
+# footer of the web UI all say 1.2.0. Between tags you get a development
+# version such as 1.2.1.dev4+g1a2b3cd, which is deliberately not a valid
+# release -- it is meant to look wrong if it ever escapes.
+[tool.hatch.version]
+source = "vcs"
+# The git repository starts a directory above this file.
+raw-options = { root = ".." }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/checklists_bridge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Coverage is on by default so a plain `pytest` enforces the same gate as CI.
+# The xml/html reports are artifacts only CI and `just coverage` want, so those
+# stay on the command line. For a focused run without the gate: pytest --no-cov
+addopts = "-v -n auto --dist loadfile --cov --cov-report=term-missing"
+filterwarnings = [
+    # Our own warnings are bugs; third-party deprecations are not ours to fix.
+    "error",
+    "ignore::DeprecationWarning",
+    "ignore::starlette.exceptions.StarletteDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["checklists_bridge"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+# Without this, fail_under is compared against the total rounded to whole
+# percent, so 97.58% is read as "98" and slips past a threshold of 98.
+precision = 2
+# The suite sits at 100%. The gate is a little below that on purpose: it should
+# fail when a change lands untested, not when one defensive branch goes unhit.
+fail_under = 98
+exclude_also = [
+    'if __name__ == "__main__":',
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+[tool.mypy]
+python_version = "3.14"
+# ../e2e and ../tools, not just src and tests: the harnesses and build/check
+# scripts are as much a part of this project as the bridge itself, and an
+# unchecked call across their module boundary is exactly how simulator_env()
+# went uncaught until someone actually ran `just screenshots`.
+files = ["src", "tests", "../e2e", "../tools"]
+strict = true
+warn_unreachable = true
+mypy_path = ["src", "tests"]
+explicit_package_bases = true

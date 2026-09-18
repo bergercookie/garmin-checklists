@@ -1,0 +1,32 @@
+<strings>
+    <string id="AppName">Checklists</string>
+
+    <string id="SettingBridgeUrl">Bridge URL</string>
+    <string id="SettingBridgeUrlPrompt">https://checklists.example.com</string>
+    <string id="SettingDeviceToken">Device token</string>
+    <string id="SettingDeviceTokenPrompt">From the bridge web page</string>
+
+    <string id="MenuTitle">Checklists</string>
+    <string id="SyncNow">Sync now</string>
+    <string id="Syncing">Syncing…</string>
+    <string id="HintKeys">START open - MENU sync</string>
+
+    <string id="Settings">Settings</string>
+    <string id="ShowClock">Show clock</string>
+    <string id="ShowClockHint">Time at the top</string>
+    <string id="SettingAutoSync">Sync hourly (clears ticks)</string>
+    <string id="SettingAutoSyncHint">Off by default</string>
+
+    <string id="NeverSynced">Never synced</string>
+    <string id="NoChecklists">No checklists yet</string>
+    <string id="SyncOk">Sync complete</string>
+    <string id="AutoSyncOk">Auto-synced</string>
+    <string id="SyncFailed">Sync failed</string>
+    <string id="NotConfigured">Set URL + token</string>
+    <string id="NoPhone">Phone not connected</string>
+    <string id="BadToken">Token rejected</string>
+    <string id="NeedsHttps">Needs https:// URL</string>
+    <string id="BadResponse">Bad reply from bridge</string>
+    <string id="TooBig">Too many items</string>
+    <string id="TimedOut">Bridge timed out</string>
+</strings>

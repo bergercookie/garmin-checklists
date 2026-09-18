@@ -1,0 +1,5 @@
+<properties>
+    <!-- Both are typed by the user in Garmin Connect; see docs/watch-app.md. -->
+    <property id="bridgeUrl" type="string"></property>
+    <property id="deviceToken" type="string"></property>
+</properties>

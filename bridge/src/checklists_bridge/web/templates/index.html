@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Checklists bridge</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Checklists</h1>
+    <form method="post" action="/logout"><button class="ghost" type="submit">Sign out</button></form>
+  </header>
+
+  <main>
+    <p id="flash" class="flash" hidden></p>
+
+    <section>
+      <h2>Watch</h2>
+      <p class="muted">Enter these in Garmin Connect &rarr; the Checklists app &rarr; Settings.</p>
+      <dl class="pairing">
+        <dt>Bridge URL</dt>
+        <dd>
+          <code id="public-url">&mdash;</code>
+          <button class="copy" data-copy="public-url" type="button">Copy</button>
+        </dd>
+        <dt>Device token</dt>
+        <dd>
+          <code id="device-token">&mdash;</code>
+          <button class="copy" data-copy="device-token" type="button">Copy</button>
+        </dd>
+      </dl>
+      <div class="row">
+        <button id="refresh">Refresh now</button>
+        <button id="rotate-token" class="ghost">New device token</button>
+        <button id="revoke-sessions" class="ghost">Sign out everywhere</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Providers</h2>
+      <p class="muted">Pick one to connect it and choose which lists reach the watch.</p>
+      <div id="providers" class="provider-grid"></div>
+    </section>
+
+    <section>
+      <h2>On the watch after the next sync</h2>
+      <div class="kpis">
+        <div class="stat">
+          <span class="value" id="sum-lists">0</span>
+          <span class="label">Checklists</span>
+        </div>
+        <div class="stat">
+          <span class="value" id="sum-items">0</span>
+          <span class="label">Items</span>
+        </div>
+      </div>
+      <p class="muted">Last refreshed from providers: <span id="sum-synced">never</span>.</p>
+      <p class="error" id="sum-stale" hidden></p>
+      <ul id="snapshot" class="snapshot"></ul>
+    </section>
+  </main>
+
+  <dialog id="provider-sheet" class="provider-sheet">
+    <header class="sheet-head">
+      <img id="sheet-art" class="provider-art" alt="" />
+      <h3 id="sheet-title">Provider</h3>
+      <button id="sheet-close" class="ghost" type="button">Done</button>
+    </header>
+    <div id="sheet-body"></div>
+  </dialog>
+
+  <footer class="muted">checklists-bridge {{ version }}</footer>
+  <script src="/static/app.js" type="module"></script>
+</body>
+</html>

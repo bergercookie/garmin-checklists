@@ -1,0 +1,24 @@
+# Actions and base images drift silently until the day a release fails. This is
+# why every action in .github/workflows was several majors behind.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /bridge
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: uv
+    directory: /bridge
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns: ["*"]

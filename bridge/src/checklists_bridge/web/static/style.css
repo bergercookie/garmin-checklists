@@ -1,0 +1,108 @@
+:root {
+  --bg: #11151a;
+  --panel: #1b222b;
+  --line: #2c3742;
+  --text: #e6edf3;
+  --muted: #98a6b3;
+  --accent: #4da3ff;
+  --danger: #ff6b6b;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0 1rem 3rem;
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 0; border-bottom: 1px solid var(--line);
+}
+h1 { font-size: 1.3rem; margin: 0; }
+h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+h3 { font-size: 1rem; margin: 0; }
+section { border-bottom: 1px solid var(--line); padding: 1rem 0; }
+main { max-width: 42rem; margin: 0 auto; }
+.card { max-width: 22rem; margin: 15vh auto; }
+.card button { margin-top: 1rem; }
+.muted { color: var(--muted); font-size: .875rem; }
+.error { color: var(--danger); }
+.row { display: flex; flex-wrap: wrap; gap: .5rem; }
+button, input, textarea, select {
+  font: inherit; border-radius: .5rem; border: 1px solid var(--line);
+}
+button {
+  background: var(--accent); color: #06121f; border: none;
+  padding: .6rem 1rem; font-weight: 600; cursor: pointer;
+}
+button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+input, textarea { width: 100%; padding: .55rem .65rem; background: var(--panel); color: var(--text); }
+input[type="checkbox"] { width: auto; }
+label { display: block; margin: .75rem 0 .25rem; font-size: .875rem; color: var(--muted); }
+.provider { background: var(--panel); border-radius: .75rem; padding: 1rem; margin-bottom: 1rem; }
+.provider header { border: none; padding: 0 0 .5rem; }
+/* Stacked, not two columns: a bridge URL is far too long to sit beside a
+   label on a phone, which is where this page is actually used. */
+.pairing { margin: 0; }
+.pairing dt { color: var(--muted); font-size: .8rem; margin-top: .75rem; }
+.pairing dd {
+  margin: .15rem 0 0; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
+}
+.pairing code {
+  font-family: ui-monospace, monospace; overflow-wrap: anywhere; min-width: 0;
+}
+.pairing + .row { margin-top: 1.25rem; }
+button.copy {
+  background: transparent; color: var(--accent); border: 1px solid var(--line);
+  padding: .15rem .5rem; font-size: .8rem; font-weight: 500; flex: none;
+}
+button.copy[data-done] { color: var(--text); border-color: var(--accent); }
+
+/* Headline counts. Deliberately not a chart: three numbers with labels. */
+.kpis { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: .5rem 0 1rem; }
+.stat { display: flex; flex-direction: column; gap: .15rem; }
+.stat .value { font-size: 1.75rem; font-weight: 600; line-height: 1.1; color: var(--text); }
+.stat .label { font-size: .8rem; color: var(--muted); }
+.sources { list-style: none; padding: 0; margin: .5rem 0; }
+.sources li { display: flex; gap: .5rem; align-items: center; padding: .25rem 0; }
+.snapshot { padding-left: 1.1rem; }
+.flash { background: var(--panel); border-left: 3px solid var(--accent); padding: .75rem; }
+.flash[data-kind="error"] { border-color: var(--danger); }
+.checklist { border-top: 1px solid var(--line); padding: .75rem 0; }
+
+/* Providers as a row of pictures: one tile each, tapped to open its settings.
+   A real <button>, so it is focusable and answers Enter -- the page had no
+   keyboard affordances at all before this. */
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: .75rem;
+  margin-top: .75rem;
+}
+.provider-tile {
+  display: flex; flex-direction: column; align-items: center; gap: .4rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: .75rem;
+  padding: 1rem .75rem; color: var(--text); font-weight: 500; text-align: center;
+  cursor: pointer;
+}
+.provider-tile:hover { border-color: var(--accent); }
+.provider-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.provider-tile[data-connected] { border-color: var(--accent); }
+.provider-art { display: block; width: 3rem; height: 3rem; }
+.provider-name { font-size: .95rem; }
+.provider-state { font-size: .75rem; color: var(--muted); font-weight: 400; }
+
+/* The settings sheet. Full width on a phone, a panel on anything larger. */
+.provider-sheet {
+  width: min(34rem, 100%); border: 1px solid var(--line); border-radius: .75rem;
+  background: var(--panel); color: var(--text); padding: 1rem;
+}
+.provider-sheet::backdrop { background: rgb(0 0 0 / .6); }
+.sheet-head {
+  display: flex; align-items: center; gap: .75rem;
+  border-bottom: 1px solid var(--line); padding: 0 0 .75rem; margin-bottom: .5rem;
+}
+.sheet-head h3 { flex: 1; }
+.sheet-head .provider-art { width: 2rem; height: 2rem; }

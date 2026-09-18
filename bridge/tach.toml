@@ -1,0 +1,49 @@
+# Module boundaries for the bridge. The point is one-way flow:
+#   models/config/security  ->  providers/storage  ->  service  ->  web
+# If an edit needs a new arrow here, it probably needs a rethink instead.
+source_roots = ["src"]
+exclude = ["tests", ".venv", "dist"]
+
+[[modules]]
+path = "checklists_bridge"
+depends_on = ["checklists_bridge.config", "checklists_bridge.web"]
+
+[[modules]]
+path = "checklists_bridge.models"
+depends_on = []
+
+[[modules]]
+path = "checklists_bridge.config"
+depends_on = []
+
+[[modules]]
+path = "checklists_bridge.security"
+depends_on = []
+
+[[modules]]
+path = "checklists_bridge.providers"
+depends_on = ["checklists_bridge.models"]
+
+[[modules]]
+path = "checklists_bridge.storage"
+depends_on = ["checklists_bridge.models", "checklists_bridge.security"]
+
+[[modules]]
+path = "checklists_bridge.service"
+depends_on = [
+    "checklists_bridge.models",
+    "checklists_bridge.providers",
+    "checklists_bridge.security",
+    "checklists_bridge.storage",
+]
+
+[[modules]]
+path = "checklists_bridge.web"
+depends_on = [
+    "checklists_bridge.config",
+    "checklists_bridge.models",
+    "checklists_bridge.providers",
+    "checklists_bridge.security",
+    "checklists_bridge.service",
+    "checklists_bridge.storage",
+]

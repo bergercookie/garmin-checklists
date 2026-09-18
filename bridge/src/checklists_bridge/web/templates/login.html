@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Checklists bridge</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>Checklists bridge</h1>
+    {% if error %}<p class="error">Wrong password.</p>{% endif %}
+    {% if locked %}<p class="error">Too many attempts. Try again in {{ locked }}s.</p>{% endif %}
+    <form method="post" action="/login">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required />
+      <button type="submit">Sign in</button>
+    </form>
+  </main>
+</body>
+</html>

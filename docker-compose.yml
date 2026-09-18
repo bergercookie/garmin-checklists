@@ -1,0 +1,74 @@
+# Checklists bridge — copy this next to your other self-hosted services.
+#
+# It listens on localhost only and expects your existing reverse proxy to
+# terminate TLS in front of it. Connect IQ refuses plain HTTP, so the watch
+# talks to the proxy, never to this port directly.
+#
+#   cp .env.example .env   # then edit it
+#   docker compose up -d
+#
+# See docs/bridge.md for the Caddy snippet and the proxy-on-the-same-network
+# variant.
+
+name: checklists
+
+services:
+  bridge:
+    build: ./bridge
+    image: checklists-bridge:local
+    container_name: checklists-bridge
+    restart: unless-stopped
+    # The image already runs as an unprivileged user (uid 10001). Override this
+    # ONLY together with the bind mount below: the named volume is created owned
+    # by 10001, so a different uid cannot write to it and the bridge dies on its
+    # first save. With a bind mount, set PUID/PGID in .env to the host user that
+    # owns the directory:
+    #   id -u  ->  PUID     id -g  ->  PGID
+    user: "${PUID:-10001}:${PGID:-10001}"
+    environment:
+      # Protects the web UI. Required; the container exits without it.
+      CHECKLISTS_ADMIN_PASSWORD: ${CHECKLISTS_ADMIN_PASSWORD:?set this in .env}
+      # The HTTPS URL your proxy serves. Shown on the pairing screen so you
+      # know what to type into Garmin Connect.
+      CHECKLISTS_PUBLIC_URL: ${CHECKLISTS_PUBLIC_URL:-}
+      # Whose X-Forwarded-* headers to believe -- IPs/CIDRs, comma-separated.
+      # Left unset, only 127.0.0.1 is trusted, which is wrong for a proxy
+      # reaching this container over Docker's network: every request would
+      # look like it came from the Docker gateway. Set this to your proxy's
+      # real address (`docker network inspect <project>_default | grep
+      # Gateway` once the stack is up); 172.16.0.0/12, Docker's whole default
+      # bridge range, is a broad but workable default if you'd rather not
+      # look it up -- still far narrower than trusting every peer.
+      CHECKLISTS_TRUSTED_PROXIES: ${CHECKLISTS_TRUSTED_PROXIES:-172.16.0.0/12}
+    volumes:
+      # Device token, provider credentials, local checklists and the snapshot.
+      # Back this up; it is a single JSON file.
+      - checklists-data:/data
+      # Prefer the file on your host, where your backups already look? Swap the
+      # line above for this one, set PUID/PGID in .env, and give yourself the
+      # directory first:
+      #   mkdir -p ./data && sudo chown $(id -u):$(id -g) ./data
+      # - ./data:/data
+    # Defence in depth: the process needs no privileges, no new ones, and only
+    # /data and /tmp to be writable.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      # Bound to loopback: only a proxy on this host can reach it. If your
+      # proxy runs in Docker too, drop this and use the network below instead.
+      - "127.0.0.1:8099:8099"
+
+volumes:
+  checklists-data:
+
+# If your reverse proxy is itself a container, attach the bridge to its network
+# and let the proxy address it as http://checklists-bridge:8099.
+#
+# networks:
+#   proxy:
+#     external: true

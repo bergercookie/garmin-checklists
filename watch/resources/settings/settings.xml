@@ -1,0 +1,10 @@
+<settings>
+    <setting propertyKey="@Properties.bridgeUrl" title="@Strings.SettingBridgeUrl"
+             prompt="@Strings.SettingBridgeUrlPrompt">
+        <settingConfig type="alphaNumeric" maxLength="128"/>
+    </setting>
+    <setting propertyKey="@Properties.deviceToken" title="@Strings.SettingDeviceToken"
+             prompt="@Strings.SettingDeviceTokenPrompt">
+        <settingConfig type="alphaNumeric" maxLength="32"/>
+    </setting>
+</settings>

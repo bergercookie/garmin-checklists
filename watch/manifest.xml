@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!-- Generated ids must stay stable: changing iq:application/@id makes the store
+     treat this as a different app. -->
+<iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="3">
+    <iq:application
+        entry="ChecklistsApp"
+        id="caeea8693e87466da80a1b44e50ee0f5"
+        launcherIcon="@Drawables.LauncherIcon"
+        minApiLevel="3.1.0"
+        name="@Strings.AppName"
+        type="watch-app">
+        <!-- Fenix 7 family and the Descent G2. Product ids come from the SDK's
+             device list (see docs/watch-app.md); drop any your SDK lacks.
+             Other Descent models are one line each: descentg1, descentmk2,
+             descentmk2s, descentmk343mm, descentmk351mm. -->
+        <iq:products>
+            <iq:product id="fenix7"/>
+            <iq:product id="fenix7s"/>
+            <iq:product id="fenix7x"/>
+            <iq:product id="fenix7pro"/>
+            <iq:product id="fenix7spro"/>
+            <iq:product id="fenix7xpro"/>
+            <iq:product id="descentg1"/>
+            <iq:product id="descentg2"/>
+        </iq:products>
+        <iq:permissions>
+            <iq:uses-permission id="Communications"/>
+            <!-- The optional hourly auto-sync (AutoSync.mc). -->
+            <iq:uses-permission id="Background"/>
+        </iq:permissions>
+        <iq:languages>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+    </iq:application>
+</iq:manifest>

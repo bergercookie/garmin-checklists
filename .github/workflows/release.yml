@@ -1,0 +1,190 @@
+name: Release
+
+# Tagging is the whole release procedure. Push `v1.2.0` and this builds the
+# wheel, the multi-architecture image and the GitHub release, all carrying that
+# version because hatch-vcs reads it back out of the tag.
+on:
+  push:
+    tags: ["v*"]
+  # Rehearse the whole thing without publishing anything. Worth doing once
+  # before the first real tag, since otherwise the first release *is* the test.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build everything, publish nothing"
+        type: boolean
+        default: true
+
+# Least privilege by default; the jobs that need more ask for it.
+permissions:
+  contents: read
+
+# Two tags pushed close together would otherwise race over `latest`.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # Nothing is published until the tag agrees with the code and the suite passes.
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      # `v1.2.0` is the tag; `1.2.0` is the version. Published image tags carry
+      # no leading v, so anything that names an image must use this.
+      version: ${{ steps.names.outputs.version }}
+      # ghcr rejects an uppercase path, and github.repository preserves the
+      # owner's capitalisation.
+      ghcr_image: ${{ steps.names.outputs.ghcr_image }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # hatch-vcs needs the tags, and a shallow clone has none.
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - uses: extractions/setup-just@v4
+
+      - name: Work out the version and the image name
+        id: names
+        env:
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "ghcr_image=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - run: just install
+      # Passed through the environment rather than interpolated into the shell:
+      # a git tag may legally contain ; $ & and |.
+      - env:
+          TAG: ${{ github.ref_name }}
+        run: just check-tag "$TAG"
+      - run: just check
+      # The image is built from a context with no git history, so it is told its
+      # version rather than deriving it. Prove the two paths agree before we
+      # publish an image whose /healthz would otherwise lie about what it is,
+      # and smoke-test the thing that actually ships.
+      - env:
+          VERSION: ${{ steps.names.outputs.version }}
+        run: just check-image-version "$VERSION"
+      - run: just image-test
+      - run: just build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: bridge/dist/
+
+  image:
+    needs: verify
+    runs-on: ubuntu-latest
+    # An emulated arm64 build that wedges should not burn the 6-hour default.
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # arm64 covers the Raspberry Pi and the small ARM boxes these things tend
+      # to live on. Emulated builds are slow, which is why this only runs on a
+      # tag rather than on every push.
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Docker Hub is optional. Set the DOCKERHUB_REPOSITORY variable (e.g.
+      # myname/checklists-bridge) and the DOCKERHUB_USERNAME/DOCKERHUB_TOKEN
+      # secrets to switch it on; without them the release still goes to ghcr.
+      - name: Log in to Docker Hub
+        if: vars.DOCKERHUB_REPOSITORY != ''
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Decide which registries to push to
+        id: registries
+        env:
+          GHCR_IMAGE: ${{ needs.verify.outputs.ghcr_image }}
+          DOCKERHUB_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY }}
+        run: |
+          images="${GHCR_IMAGE}"
+          if [ -n "${DOCKERHUB_REPOSITORY}" ]; then
+            images="${images}"$'\n'"${DOCKERHUB_REPOSITORY}"
+            echo "Publishing to ghcr.io and Docker Hub."
+          else
+            echo "DOCKERHUB_REPOSITORY is unset, so publishing to ghcr.io only."
+          fi
+          {
+            echo 'images<<EOF'
+            echo "${images}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ${{ steps.registries.outputs.images }}
+          # v1.2.0 publishes 1.2.0, 1.2, 1 and latest. A pre-release such as
+          # v1.3.0-rc1 collapses to its own version and is never `latest` --
+          # metadata-action decides that from the semver itself, which is more
+          # accurate than a hyphen test would be.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ./bridge
+          # The build context has no .git, so the version is handed over. This
+          # is the same value `just check-image-version` was given, with no
+          # leading v, so the check covers what actually ships.
+          build-args: |
+            APP_VERSION=${{ needs.verify.outputs.version }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ !inputs.dry_run }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    needs: [verify, image]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: dist/*
+          body: |
+            ## Container image
+
+            ```
+            docker pull ${{ needs.verify.outputs.ghcr_image }}:${{ needs.verify.outputs.version }}
+            ```
+
+            Built for linux/amd64 and linux/arm64. See the
+            [documentation](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/)
+            for upgrade notes.

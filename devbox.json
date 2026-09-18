@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.7/.schema/devbox.schema.json",
+  "packages": [
+    "python@3.14",
+    "uv@latest",
+    "just@latest",
+    "pre-commit@latest",
+    "git@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'Checklists dev shell. Run `just` to see the available recipes.'"
+    ],
+    "scripts": {
+      "setup": ["just install", "just hooks"],
+      "test": ["just test"],
+      "check": ["just check"]
+    }
+  }
+}

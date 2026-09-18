@@ -1,0 +1,19 @@
+# Copy to `justfile.user` for recipes of your own. Not tracked by git.
+#
+#   cp justfile.user.example justfile.user
+#
+# These join the main list, so `just` and `just --list` show them too. Names
+# must not clash with a recipe in the justfile; that is an error, not an
+# override.
+
+# Serve the bridge with your own settings.
+mine-run:
+    CHECKLISTS_ADMIN_PASSWORD=... \
+    CHECKLISTS_PUBLIC_URL=https://checklists.example.com \
+        just run
+
+# Build and install to a watch in one go.
+mine-install device="fenix7":
+    CIQ_DEVICE={{device}} just watch-build
+    gio copy -p build/checklists-{{device}}.prg \
+        "mtp://091e_4f43_0000d07eee5a/Internal Storage/GARMIN/APPS/"
