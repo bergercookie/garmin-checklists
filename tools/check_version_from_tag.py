@@ -43,7 +43,15 @@ def main() -> int:
         # A local clone of HEAD: fast, and it carries the commit graph hatch-vcs
         # wants. Uncommitted work in the real tree is deliberately not included.
         run(["git", "clone", "--quiet", str(REPO), str(clone)], cwd=REPO)
-        run(["git", "tag", "--force", FAKE_TAG], cwd=clone)
+        # `git clone` copies every tag from REPO too. If HEAD already carries a
+        # real release tag (as it does mid-release), it and FAKE_TAG would both
+        # sit at distance zero and `git describe` breaks the tie by ref-name
+        # order, not recency -- silently picking the real tag over ours. Strip
+        # every copied tag so FAKE_TAG is the only one hatch-vcs can see.
+        existing_tags = run(["git", "tag", "--list"], cwd=clone).split()
+        if existing_tags:
+            run(["git", "tag", "--delete", *existing_tags], cwd=clone)
+        run(["git", "tag", FAKE_TAG], cwd=clone)
 
         bridge = clone / "bridge"
         run(["uv", "build", "--wheel", "--out-dir", "dist"], cwd=bridge)
