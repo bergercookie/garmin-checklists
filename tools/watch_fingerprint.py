@@ -1,8 +1,7 @@
 """Fingerprint the watch sources.
 
 Lives on its own so the screenshot capture and the staleness check share one
-implementation -- an earlier version had a shell copy in the CI workflow, which
-had to hash paths in exactly the same order to agree.
+implementation
 """
 
 from __future__ import annotations

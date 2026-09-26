@@ -1,23 +1,30 @@
 # Checklists
 
-A Garmin watch app for checklists — dive kit, pre-flight, packing — backed by a
-small self-hosted bridge that pulls them from your task manager.
-
-Works on **fenix 7** and **Descent G2**. Pulls from **Vikunja** and **Trilium
-Notes**, or keeps checklists itself; adding a provider is one Python class.
+A Garmin watch app for checklists — dive kit, pre-flight, packing etc. — backed by a
+small self-hosted bridge that pulls them from your task manager. Checklists
 
 <p align="center">
   <img src="docs/images/fenix7-index.png" alt="The checklist index on a fenix 7" width="240">
   <img src="docs/images/fenix7-checklist-ticked.png" alt="A checklist with an item ticked" width="240">
 </p>
 
+Checklists selected from your TODO manager / note-taking app of choice and are
+imported to your Garmin watch.
+On the watch you can tick/untick the items in the checklist. The item ticks stay on the
+device - i.e, whenever an item is ticked, said new ticked status is not copied
+back to the provider. This is deliberate as these checklists are ultimately
+considered templates / routine items from the perspective of this tool -
+e.g., "Night routine" items that are meant to be executed routinely and don't
+need to be checked off in the provider.
+
+
 ```text
-┌──────────┐  HTTPS   ┌──────────────┐  HTTPS  ┌─────────┐
-│ Watch    │ ───────► │ Bridge       │ ──────► │ Vikunja │
-│ Monkey C │  via the │ FastAPI      │         │ …or none│
-└──────────┘  phone   └──────────────┘         └─────────┘
-      ▲                      ▲
-      │ ticks stay here      │ browser: connect, pick lists, edit
+┌──────────┐  HTTPS   ┌──────────────┐  HTTPS  ┌─────────────────┐
+│ Watch    │ ───────► │ Bridge       │ ──────► │ Vikunja, Trilium│
+│ Monkey C │  via the │ FastAPI      │         │ …or none        │
+└──────────┘  phone   └──────────────┘         └─────────────────┘
+      ▲                      │
+      │ send templates       │ browser: connect, pick lists, edit
       └──────────────────────┘
 ```
 
@@ -25,18 +32,11 @@ Notes**, or keeps checklists itself; adding a provider is one Python class.
 
 Productivity-minded homelab users who are comfortable with server work: you keep
 a box running, you have a reverse proxy with real certificates, and a compose
-file does not frighten you. Setup is about fifteen minutes.
+file does not frighten you.
 
 There is no hosted service and no account. You run the bridge; your provider
 credentials stay on your disk. HTTPS is mandatory — Connect IQ refuses plain
 HTTP outright (see [Running the bridge](docs/bridge.md)).
-
-## Two rules
-
-1. **Checklists flow one way.** The bridge serves templates. Ticks stay on the
-   watch and are never written back.
-2. **A sync replaces everything and clears every tick.** Items always arrive
-   unticked. That is also how you reset a template.
 
 ## Quick start
 
@@ -45,8 +45,10 @@ cp .env.example .env     # admin password + your HTTPS URL
 docker compose up -d
 ```
 
-> **The bridge must sit behind an HTTPS reverse proxy.** The watch refuses plain
-> HTTP, and will not trust a certificate your system does not.
+For this to work you have a valid TLS certificate for the bridge server, one
+that the client (i.e., the garmin app on your phone) will ultimately trust. It
+is advised that you use a reverse proxy in front of the bridge, like
+[caddy](https://caddyserver.com/) and set it up with a public TLS certificate authority (e.g., via [Let's Encrypt](https://letsencrypt.org/)).
 
 Then open the bridge in a browser, add checklists, and install the app:
 **[Getting started](docs/getting-started.md)**.

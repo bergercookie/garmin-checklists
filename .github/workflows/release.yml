@@ -185,6 +185,4 @@ jobs:
             docker pull ${{ needs.verify.outputs.ghcr_image }}:${{ needs.verify.outputs.version }}
             ```
 
-            Built for linux/amd64 and linux/arm64. See the
-            [documentation](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/)
-            for upgrade notes.
+            Built for linux/amd64 and linux/arm64. See the [documentation](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/) for upgrade notes.
