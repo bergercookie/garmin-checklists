@@ -82,6 +82,18 @@ UNLABELLED_NOTE = "Shopping"
 UNLABELLED_BODY = "<p>[] Milk</p>"
 
 
+#: Two notes for the link scenario. The parent holds a link to the child, written
+#: as Trilium's own link dialog writes it, and so must show the child's items
+#: nested under it on the watch.
+LINK_PARENT = "Evening"
+LINK_CHILD = "Night routine"
+LINK_CHILD_ITEMS = ["Brush teeth", "Lock the door"]
+#: What the parent should unroll to, and each item's depth times two plus one
+#: for the heading -- the watch's own encoding, see watch_api.py.
+LINK_FLATTENED = ["Lights out", LINK_CHILD, *LINK_CHILD_ITEMS, "Sleep"]
+LINK_KINDS = [0, 1, 2, 2, 0]
+
+
 class Trilium:
     provider_id = "trilium"
     label = "Trilium Notes"
@@ -146,6 +158,29 @@ class Trilium:
             not_offered={UNLABELLED_NOTE: f"it carries no #{LABEL} label"},
             all_source_ids=[self._notes[NOTE], self._notes[OTHER_NOTE]],
         )
+
+    def note_id(self, title: str) -> str:
+        """The id Trilium gave a note this fixture created."""
+        return self._notes[title]
+
+    def seed_links(
+        self, child_items: list[str] | None = None, closing_item: str | None = "Sleep"
+    ) -> tuple[str, str]:
+        """A note that links to another checklist; returns (parent id, child id)."""
+        child = self._create_note(
+            LINK_CHILD,
+            "".join(f"<p>[] {label}</p>" for label in child_items or LINK_CHILD_ITEMS),
+            labelled=True,
+        )
+        link = f'<a class="reference-link" href="#root/{child}">{LINK_CHILD}</a>'
+        body = (
+            "<p>[] Lights out</p>"
+            '<ul class="todo-list">'
+            '<li><label class="todo-list__label"><input type="checkbox" disabled="disabled">'
+            f'<span class="todo-list__label__description">{link}</span></label></li>'
+            "</ul>" + (f"<p>[] {closing_item}</p>" if closing_item else "")
+        )
+        return self._create_note(LINK_PARENT, body, labelled=True), child
 
     def add_item(self, source_id: str, label: str) -> None:
         """Append one unticked line to the note, as a person editing it would."""

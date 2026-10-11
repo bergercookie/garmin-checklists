@@ -19,12 +19,18 @@ class MenuRow {
     var sub as String?;
     //! Null for a row with no box.
     var on as Boolean?;
+    //! How many levels the row is indented, for the items of a linked list.
+    var depth as Number;
+    //! A row that only introduces the rows under it: drawn apart, never focused.
+    var heading as Boolean;
 
     function initialize(id as Object, label as String, sub as String?, on as Boolean?) {
         self.id = id;
         self.label = label;
         self.sub = sub;
         self.on = on;
+        self.depth = 0;
+        self.heading = false;
     }
 }
 
@@ -49,7 +55,7 @@ class ListMenuView extends WatchUi.View {
         View.initialize();
         _title = title;
         _rows = rows;
-        _focus = focus;
+        _focus = selectable(rows, focus, 1);
         _top = 0;
         _rowsFrom = 0;
         _rowHeight = 1;
@@ -79,16 +85,32 @@ class ListMenuView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
 
+    //! Focus a row. A heading cannot be focused, so this does nothing for one.
     function setFocus(index as Number) as Void {
-        if (index >= 0 && index < _rows.size()) {
+        if (index >= 0 && index < _rows.size() && !_rows[index].heading) {
             _focus = index;
             WatchUi.requestUpdate();
         }
     }
 
-    //! Move the focus by delta rows, stopping at either end.
+    //! Move the focus by delta rows, stopping at either end and stepping over
+    //! any headings on the way.
     function move(delta as Number) as Void {
-        setFocus(_focus + delta);
+        var index = _focus + delta;
+        while (index >= 0 && index < _rows.size() && _rows[index].heading) {
+            index += delta;
+        }
+        setFocus(index);
+    }
+
+    //! The nearest row from start, in direction step, that is not a heading;
+    //! start itself if there is none, so an all-heading list still has a focus.
+    private function selectable(rows as Array<MenuRow>, start as Number, step as Number) as Number {
+        var index = start;
+        while (index >= 0 && index < rows.size() && rows[index].heading) {
+            index += step;
+        }
+        return index >= 0 && index < rows.size() ? index : start;
     }
 
     //! The row drawn at screen height y from the last draw, or -1.
@@ -139,6 +161,11 @@ class ListMenuView extends WatchUi.View {
         } else if (_focus >= _top + visible) {
             _top = _focus - visible + 1;
         }
+        // The heading just above the focus is kept in view with it: it is what
+        // says which list the focused item belongs to.
+        if (_focus == _top && _top > 0 && _rows[_top - 1].heading) {
+            _top -= 1;
+        }
         _rowsFrom = from;
         _rowHeight = rowHeight;
         _visible = visible;
@@ -157,9 +184,21 @@ class ListMenuView extends WatchUi.View {
         inset as Number, box as Number, small as Number, tiny as Number
     ) as Void {
         var width = dc.getWidth();
-        var textRoom = width - (2 * inset) - (row.on != null ? box + 8 : 0);
+        // Each level of a linked list steps in a little, and the left edge of
+        // the text with it; the focus bar stays where it is.
+        var left = inset + (row.depth * (width / 18));
+        var textRoom = width - inset - left - (row.on != null ? box + 8 : 0);
         var middle = y + (rowHeight / 2);
         var sub = row.sub;
+
+        if (row.heading) {
+            dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(
+                left, middle, Graphics.FONT_XTINY, fit(dc, row.label, Graphics.FONT_XTINY, textRoom),
+                Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER
+            );
+            return;
+        }
 
         if (focused) {
             dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
@@ -170,13 +209,13 @@ class ListMenuView extends WatchUi.View {
         );
         var labelY = sub == null ? middle : middle - (tiny / 2);
         dc.drawText(
-            inset, labelY, Graphics.FONT_SMALL, fit(dc, row.label, Graphics.FONT_SMALL, textRoom),
+            left, labelY, Graphics.FONT_SMALL, fit(dc, row.label, Graphics.FONT_SMALL, textRoom),
             Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER
         );
         if (sub != null) {
             dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
             dc.drawText(
-                inset, middle + (small / 2), Graphics.FONT_XTINY,
+                left, middle + (small / 2), Graphics.FONT_XTINY,
                 fit(dc, sub, Graphics.FONT_XTINY, textRoom),
                 Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER
             );
@@ -184,14 +223,14 @@ class ListMenuView extends WatchUi.View {
 
         var on = row.on;
         if (on != null) {
-            var left = width - inset - box;
+            var boxLeft = width - inset - box;
             var top = middle - (box / 2);
             if (on) {
                 dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-                dc.fillRoundedRectangle(left, top, box, box, 3);
+                dc.fillRoundedRectangle(boxLeft, top, box, box, 3);
             } else {
                 dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-                dc.drawRoundedRectangle(left, top, box, box, 3);
+                dc.drawRoundedRectangle(boxLeft, top, box, box, 3);
             }
         }
     }
@@ -271,7 +310,8 @@ class ListMenuDelegate extends WatchUi.BehaviorDelegate {
 
     function onTap(event as WatchUi.ClickEvent) as Boolean {
         var index = _view.rowAt(event.getCoordinates()[1]);
-        if (index >= 0) {
+        var row = _view.row(index);
+        if (row != null && !row.heading) {
             _view.setFocus(index);
             choose(index);
         }

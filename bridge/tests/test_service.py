@@ -221,3 +221,53 @@ def test_providers_are_closed_after_every_refresh(
     configure_fake(service)
     service.refresh()
     assert closed, "the provider built for the refresh was never closed"
+
+
+def test_refresh_unrolls_links_between_the_selected_checklists(service: ChecklistService) -> None:
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a", "b"])
+    fakes.LINKS["a"] = {0: ("b",)}
+    report = service.refresh()
+
+    unrolled = service.snapshot_checklist("fake:a")
+    assert unrolled.items == ("Mask", "Passport", "Fins")
+    assert unrolled.depths == (0, 1, 0)
+    assert unrolled.groups == (0,)
+    assert report.checklists[0] == unrolled
+    # The linked list is still a checklist in its own right.
+    assert service.snapshot_checklist("fake:b").items == ("Passport",)
+
+
+def test_a_link_to_a_checklist_that_is_not_selected_is_left_as_text(
+    service: ChecklistService,
+) -> None:
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a"])
+    fakes.LINKS["a"] = {0: ("b",)}
+    service.refresh()
+    assert service.snapshot_checklist("fake:a").items == ("Mask", "Fins")
+
+
+def test_a_failed_fetch_of_the_linked_list_falls_back_to_last_refreshs_copy(
+    service: ChecklistService,
+) -> None:
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a", "b"])
+    service.refresh()
+
+    fakes.LINKS["a"] = {0: ("b",)}
+    del fakes.CONTENT["b"]  # b can no longer be fetched
+    report = service.refresh()
+
+    assert not report.ok
+    assert service.snapshot_checklist("fake:a").items == ("Mask", "Passport", "Fins")
+
+
+def test_unrolled_lists_survive_a_restart(service: ChecklistService, tmp_path: Path) -> None:
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a", "b"])
+    fakes.LINKS["a"] = {0: ("b",)}
+    service.refresh()
+
+    reopened = ChecklistService(Database(tmp_path / "bridge.json"), service._registry)
+    assert reopened.snapshot_checklist("fake:a").depths == (0, 1, 0)

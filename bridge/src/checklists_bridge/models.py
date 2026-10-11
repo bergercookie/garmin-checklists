@@ -17,6 +17,10 @@ QUALIFIER = ":"
 MAX_ITEMS_PER_CHECKLIST = 100
 MAX_ITEM_LENGTH = 64
 MAX_NAME_LENGTH = 32
+#: How many levels of linked checklists are unrolled below the one being read:
+#: a list may include a list that includes a list that includes a list, and no
+#: further. Deeper links are left as plain items.
+MAX_LINK_DEPTH = 3
 
 
 class DomainError(Exception):
@@ -37,15 +41,46 @@ class SourceRef:
 
 
 @dataclass(frozen=True, slots=True)
+class Link:
+    """An item that points at another checklist of the same provider.
+
+    ``targets`` are provider-native source ids (a Trilium note id, say), in the
+    order they appear in the item's text; the first one that is also a checklist
+    on the bridge wins. See :mod:`checklists_bridge.flatten`.
+    """
+
+    index: int
+    targets: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class Checklist:
-    """A named, ordered list of item labels."""
+    """A named, ordered list of item labels.
+
+    A provider returns ``items`` and, if any item links to another checklist,
+    ``links``. Before the watch sees it the list is *flattened*: each linked
+    checklist's items are spliced in under a heading row, and ``depths`` and
+    ``groups`` say how deep each item sits and which items are those headings.
+    Both are empty for a plain list -- every item at depth 0, none a heading --
+    which keeps stored data from before links existed valid as it is.
+    """
 
     id: str
     name: str
     items: tuple[str, ...]
+    links: tuple[Link, ...] = ()
+    depths: tuple[int, ...] = ()
+    groups: tuple[int, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "name": self.name, "items": list(self.items)}
+        raw: dict[str, Any] = {"id": self.id, "name": self.name, "items": list(self.items)}
+        if self.links:
+            raw["links"] = [[link.index, list(link.targets)] for link in self.links]
+        if self.depths:
+            raw["depths"] = list(self.depths)
+        if self.groups:
+            raw["groups"] = list(self.groups)
+        return raw
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Checklist:
@@ -53,6 +88,12 @@ class Checklist:
             id=str(raw["id"]),
             name=str(raw["name"]),
             items=tuple(str(item) for item in raw.get("items", ())),
+            links=tuple(
+                Link(index=int(index), targets=tuple(str(target) for target in targets))
+                for index, targets in raw.get("links", ())
+            ),
+            depths=tuple(int(depth) for depth in raw.get("depths", ())),
+            groups=tuple(int(index) for index in raw.get("groups", ())),
         )
 
 
@@ -101,3 +142,26 @@ def clean_items(items: object) -> tuple[str, ...]:
         if label:
             cleaned.append(label)
     return tuple(cleaned[:MAX_ITEMS_PER_CHECKLIST])
+
+
+def clean_entries(
+    entries: Iterable[tuple[str, tuple[str, ...]]],
+) -> tuple[tuple[str, ...], tuple[Link, ...]]:
+    """:func:`clean_items` for items that may carry link targets.
+
+    Cleaning drops blank items and caps the count, which moves every later item
+    up, so a link's index has to be worked out here, from the survivors, rather
+    than from where the item was in the source.
+    """
+    items: list[str] = []
+    links: list[Link] = []
+    for label, targets in entries:
+        cleaned = " ".join(label.split())[:MAX_ITEM_LENGTH]
+        if not cleaned:
+            continue
+        if targets:
+            links.append(Link(index=len(items), targets=tuple(targets)))
+        items.append(cleaned)
+        if len(items) == MAX_ITEMS_PER_CHECKLIST:
+            break
+    return tuple(items), tuple(links)

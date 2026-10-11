@@ -10,6 +10,10 @@ import Toybox.Time;
 //! One stored checklist looks like:
 //!   { "id" => "vikunja:12", "n" => "Dive kit",
 //!     "i" => ["Mask", "Fins"], "d" => [false, true] }
+//! and, if the bridge unrolled links to other checklists into it, also
+//!   "k" => [0, 1, 2]
+//! one number per item: its depth times two, plus one for a heading (the item
+//! that stands for a linked list). See ItemKind.mc.
 //! Keys are single letters because this dictionary is written to persistent
 //! storage every time the user ticks something.
 //!
@@ -86,6 +90,11 @@ module Store {
             entry.put("n", name);
             entry.put("i", items);
             entry.put("d", unticked(items.size()));
+            // Only a well-formed "k" is kept; absent means a plain list.
+            var kinds = source["k"];
+            if (kinds instanceof Array && kinds.size() == items.size()) {
+                entry.put("k", kinds);
+            }
             stored.add(entry);
         }
         Storage.setValue(KEY_LISTS, stored as Application.Storage.ValueType);

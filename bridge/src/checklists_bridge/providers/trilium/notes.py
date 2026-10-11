@@ -23,6 +23,14 @@ Those are rewritten into the typed form before anything else happens -- a bare
 checkbox becomes ``[]`` and a ticked one ``[x]`` -- so there is one set of rules
 below rather than two parsers that have to agree.
 
+**Links to other checklists.** An item may contain a link to another note --
+the editor's *Insert → Link* or a typed ``[[`` reference, or any ordinary
+``<a href="#root/…/noteId">``. The note id is read from the link, and the
+bridge unrolls the item into that checklist if it is one it already serves (see
+flatten.py). So ``[] <a href="#root/x/abc123">LKP night routine</a>`` brings in
+the *LKP night routine* checklist under that item. The link text stays as the
+item's own text; whether it resolves is decided later, not here.
+
 Ticked items are dropped for the same reason Vikunja's finished tasks are: the
 bridge serves templates, and the watch always starts from a clean slate. So
 ticking something in Trilium takes it out of the template, which is usually what
@@ -50,6 +58,19 @@ _LINE_BREAKS = re.compile(
 
 _ANY_TAG = re.compile(r"<[^>]+>")
 
+#: An anchor and its attributes and content. Handled before the tags are
+#: stripped, because stripping them would throw the destination away.
+_ANCHOR = re.compile(r"<a\b([^>]*)>(.*?)</a>", re.IGNORECASE | re.DOTALL)
+_HREF = re.compile(r"""\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')""", re.IGNORECASE)
+
+#: Private-use characters that carry a link target through the tag stripping,
+#: attached to the end of the link's text. They cannot occur in a note.
+_TARGET_OPEN, _TARGET_CLOSE = "\ue000", "\ue001"
+_TARGET = re.compile(f"{_TARGET_OPEN}([^{_TARGET_CLOSE}]*){_TARGET_CLOSE}")
+
+#: What a Trilium note id looks like. Generous on purpose: custom ids exist.
+_NOTE_ID = re.compile(r"[A-Za-z0-9_]{1,64}")
+
 #: The editor's own checkbox. Trilium (CKEditor) writes a todo-list as an
 #: <input type="checkbox"> followed by the label text, with `checked` present
 #: only when it is done -- there is no bracket anywhere in the markup.
@@ -73,9 +94,40 @@ def _as_typed_checkbox(match: re.Match[str]) -> str:
     return "[x] " if _CHECKED.search(match.group(0)) else "[] "
 
 
-def plain_lines(content: str) -> list[str]:
-    """Flatten note content -- HTML or plain text -- into visual lines."""
+def note_id_from_href(href: str) -> str | None:
+    """The note a Trilium link points at, or None if it is not a note link.
+
+    Trilium links are a fragment holding the path through the note tree, the
+    note's own id last: ``#root/abc123/def456`` points at ``def456``. They turn
+    up bare, as ``/#root/…``, and with the instance's full address in front, so
+    only the fragment is read. A ``?viewMode=…`` after it is ignored.
+    """
+    _, hash_mark, fragment = html.unescape(href).strip().partition("#")
+    if not hash_mark:
+        return None
+    segments = [part for part in fragment.split("?", 1)[0].split("/") if part]
+    if not segments or (len(segments) > 1 and segments[0] != "root"):
+        return None
+    return segments[-1] if _NOTE_ID.fullmatch(segments[-1]) else None
+
+
+def _tag_link(match: re.Match[str]) -> str:
+    """Keep an anchor's text, with the note it points at tucked behind it."""
+    href = _HREF.search(match.group(1))
+    target = note_id_from_href(href.group(1) or href.group(2) or "") if href else None
+    if target is None:
+        return match.group(2)
+    return f"{match.group(2)}{_TARGET_OPEN}{target}{_TARGET_CLOSE}"
+
+
+def plain_lines(content: str, *, keep_links: bool = False) -> list[str]:
+    """Flatten note content -- HTML or plain text -- into visual lines.
+
+    With ``keep_links`` each link's target note id follows the link's text,
+    wrapped in private-use characters; see :func:`checklist_entries`.
+    """
     text = _DROPPED_ELEMENTS.sub(" ", content)
+    text = _ANCHOR.sub(_tag_link if keep_links else r"\2", text)
     # Before the tags are stripped, or the checkbox would vanish with them and
     # a note written with the editor's own button would import as empty.
     text = _CHECKBOX_INPUT.sub(_as_typed_checkbox, text)
@@ -95,12 +147,23 @@ def checklist_items(content: str) -> list[str]:
     ignored rather than imported, so a note can hold a checklist and prose at
     once.
     """
-    items = []
-    for line in plain_lines(content):
-        label = _item_label(line)
+    return [label for label, _ in checklist_entries(content)]
+
+
+def checklist_entries(content: str) -> list[tuple[str, tuple[str, ...]]]:
+    """:func:`checklist_items`, each with the notes its line links to.
+
+    The targets are note ids in the order the links appear, empty for an item
+    with no link. A link on a line that is not a checkbox is not an item's link
+    and is ignored with the rest of the prose.
+    """
+    entries = []
+    for line in plain_lines(content, keep_links=True):
+        targets = tuple(_TARGET.findall(line))
+        label = _item_label(_TARGET.sub("", line))
         if label is not None:
-            items.append(label)
-    return items
+            entries.append((label, targets))
+    return entries
 
 
 def _item_label(line: str) -> str | None:

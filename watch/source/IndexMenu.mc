@@ -33,16 +33,12 @@ module IndexMenu {
         return result;
     }
 
-    //! Sub-label such as "3/9 done".
+    //! Sub-label such as "3/9 done". Headings are not counted: they cannot be
+    //! ticked, so a finished list would otherwise never read as finished.
     function progressLabel(checklist as Dictionary) as String {
-        var done = checklist["d"] as Array<Boolean>;
-        var ticked = 0;
-        for (var index = 0; index < done.size(); index += 1) {
-            if (done[index]) {
-                ticked += 1;
-            }
-        }
-        return Lang.format("$1$/$2$ done", [ticked, done.size()]);
+        return Lang.format(
+            "$1$/$2$ done", [ItemKind.ticked(checklist), ItemKind.tickable(checklist)]
+        );
     }
 }
 

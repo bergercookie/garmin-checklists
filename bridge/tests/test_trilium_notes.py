@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from checklists_bridge.providers.trilium.notes import checklist_items, plain_lines
+from checklists_bridge.providers.trilium.notes import (
+    checklist_entries,
+    checklist_items,
+    note_id_from_href,
+    plain_lines,
+)
 
 
 def test_a_paragraph_per_item_is_what_the_editor_actually_writes() -> None:
@@ -177,3 +182,77 @@ def test_a_checkbox_input_outside_a_list_still_counts() -> None:
 
 def test_a_non_checkbox_input_is_not_an_item() -> None:
     assert checklist_items('<p><input type="text" value="not a checkbox"> Typed</p>') == []
+
+
+# -- links to other notes ---------------------------------------------------
+
+
+def test_a_reference_link_in_an_item_names_the_note_it_points_at() -> None:
+    content = (
+        '<p>[] <a class="reference-link" href="#root/AbC123/night456">LKP night routine</a></p>'
+    )
+    assert checklist_entries(content) == [("LKP night routine", ("night456",))]
+
+
+def test_the_editors_own_todo_list_markup_keeps_its_link_too() -> None:
+    content = (
+        '<ul class="todo-list"><li><label class="todo-list__label">'
+        '<input type="checkbox" disabled="disabled">'
+        '<span class="todo-list__label__description">'
+        '<a href="#root/a/night456">Night routine</a></span></label></li></ul>'
+    )
+    assert checklist_entries(content) == [("Night routine", ("night456",))]
+
+
+def test_link_text_stays_part_of_the_item_with_the_text_around_it() -> None:
+    content = '<p>[] Do the <a href="#root/a/night456">night routine</a> before bed</p>'
+    assert checklist_entries(content) == [("Do the night routine before bed", ("night456",))]
+
+
+def test_several_links_in_one_item_are_all_reported_in_order() -> None:
+    content = '<p>[] <a href="#root/a/one">One</a> or <a href="#root/a/two">two</a></p>'
+    assert checklist_entries(content) == [("One or two", ("one", "two"))]
+
+
+def test_a_link_on_a_line_that_is_not_an_item_is_ignored() -> None:
+    content = '<p>See <a href="#root/a/night456">night</a></p><p>[] Mask</p>'
+    assert checklist_entries(content) == [("Mask", ())]
+
+
+def test_an_ordinary_web_link_is_not_a_link_to_a_checklist() -> None:
+    content = '<p>[] <a href="https://example.com/some/page">the manual</a></p>'
+    assert checklist_entries(content) == [("the manual", ())]
+
+
+def test_a_link_still_reads_as_text_for_callers_that_do_not_care() -> None:
+    content = '<p>[] <a href="#root/a/night456">Night routine</a></p>'
+    assert checklist_items(content) == ["Night routine"]
+    assert "[] Night routine" in plain_lines(content)
+
+
+@pytest.mark.parametrize(
+    ("href", "expected"),
+    [
+        ("#root/AbC123/night456", "night456"),
+        ("/#root/AbC123/night456", "night456"),
+        ("https://trilium.example.com/#root/AbC123/night456", "night456"),
+        ("#root/AbC123/night456?viewMode=attachments", "night456"),
+        ("#root/AbC123/night456&amp;x=1", None),
+        ("#night456", "night456"),
+        ("#root", "root"),
+        ("#other/night456", None),
+        ("#", None),
+        ("https://example.com/page", None),
+        ("", None),
+        ("#root/a/not an id", None),
+    ],
+)
+def test_the_note_id_is_the_last_step_of_the_path_in_the_fragment(
+    href: str, expected: str | None
+) -> None:
+    assert note_id_from_href(href) == expected
+
+
+def test_a_single_quoted_href_works_and_an_anchor_without_one_is_just_text() -> None:
+    content = "<p>[] <a href='#root/a/night456'>Night</a></p><p>[] <a name=\"x\">Anchor</a></p>"
+    assert checklist_entries(content) == [("Night", ("night456",)), ("Anchor", ())]

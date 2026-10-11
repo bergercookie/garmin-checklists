@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
-from checklists_bridge.models import Checklist, SourceRef
+from checklists_bridge.models import Checklist, Link, SourceRef
 from checklists_bridge.providers.base import (
     ProviderAuthError,
     SourceNotFoundError,
@@ -18,6 +18,8 @@ from checklists_bridge.providers.registry import ConfigField, ProviderSpec
 CONTENT: dict[str, list[str]] = {}
 NAMES: dict[str, str] = {}
 FAIL: dict[str, bool] = {"auth": False}
+#: Source id -> the items of it that link to other sources (index -> targets).
+LINKS: dict[str, dict[int, tuple[str, ...]]] = {}
 
 
 class FakeProvider(TaskProvider):
@@ -35,7 +37,15 @@ class FakeProvider(TaskProvider):
         self._check()
         if source_id not in CONTENT:
             raise SourceNotFoundError(source_id)
-        return Checklist(id=source_id, name=NAMES[source_id], items=tuple(CONTENT[source_id]))
+        return Checklist(
+            id=source_id,
+            name=NAMES[source_id],
+            items=tuple(CONTENT[source_id]),
+            links=tuple(
+                Link(index=index, targets=targets)
+                for index, targets in LINKS.get(source_id, {}).items()
+            ),
+        )
 
     def _check(self) -> None:
         if FAIL["auth"]:
@@ -45,6 +55,7 @@ class FakeProvider(TaskProvider):
 def reset(sources: Mapping[str, tuple[str, list[str]]] | None = None) -> None:
     CONTENT.clear()
     NAMES.clear()
+    LINKS.clear()
     FAIL["auth"] = False
     for key, (name, items) in (sources or {}).items():
         NAMES[key] = name

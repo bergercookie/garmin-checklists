@@ -5,6 +5,7 @@ Trilium has no concept of a task list, so the mapping is by convention:
     note tagged #checklist   ->  checklist
     line starting "[]"       ->  item
     line starting "[x]"      ->  ignored, never imported
+    link to another note     ->  on an item: that checklist is unrolled there
     everything else          ->  ignored
 
 Which notes are offered is a Trilium search expression, so the default
@@ -23,14 +24,14 @@ from typing import Any, ClassVar
 
 import httpx
 
-from checklists_bridge.models import Checklist, SourceRef, clean_items, clean_name
+from checklists_bridge.models import Checklist, SourceRef, clean_entries, clean_name
 from checklists_bridge.providers.base import (
     TaskProvider,
     checked_base_url,
 )
 from checklists_bridge.providers.registry import REGISTRY, ConfigField, ProviderSpec
 from checklists_bridge.providers.trilium.etapi import Etapi
-from checklists_bridge.providers.trilium.notes import checklist_items
+from checklists_bridge.providers.trilium.notes import checklist_entries
 
 LOGGER = logging.getLogger(__name__)
 
@@ -89,10 +90,12 @@ class TriliumProvider(TaskProvider):
         # was imported keeps its name and keeps working, instead of silently
         # becoming "Note abc123".
         note = self._api.note(source_id)
+        items, links = clean_entries(checklist_entries(self._api.content(source_id)))
         return Checklist(
             id=str(source_id),
             name=clean_name(str(note.get("title") or f"Note {source_id}")),
-            items=clean_items(checklist_items(self._api.content(source_id))),
+            items=items,
+            links=links,
         )
 
     @staticmethod

@@ -21,11 +21,17 @@ module ItemsMenu {
         var done = checklist["d"] as Array<Boolean>;
         var rows = [] as Array<MenuRow>;
         for (var index = 0; index < items.size(); index += 1) {
-            rows.add(new MenuRow(index, items[index], null, done[index]));
+            var heading = ItemKind.isHeading(checklist, index);
+            // A heading has no box: it introduces a linked list, and is not
+            // itself something to do.
+            var row = new MenuRow(index, items[index], null, heading ? null : done[index]);
+            row.depth = ItemKind.depth(checklist, index);
+            row.heading = heading;
+            rows.add(row);
         }
         // -1 when everything is ticked; the top is then the least surprising
         // place to land.
-        var focus = done.indexOf(false);
+        var focus = ItemKind.firstUnticked(checklist);
         return new ListMenuView(checklist["n"] as String, rows, focus > 0 ? focus : 0);
     }
 }
@@ -40,7 +46,7 @@ class ItemsMenuDelegate extends ListMenuDelegate {
         _listIndex = listIndex;
     }
 
-    //! Flip the box and persist the new state.
+    //! Flip the box and persist the new state. Headings have none.
     function choose(index as Number) as Void {
         var row = _view.row(index);
         if (row == null || row.on == null) {

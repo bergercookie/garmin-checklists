@@ -31,10 +31,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import httpx
+
 import simulator_stack as sim
 import stack
 from providers import Fixture
-from providers.trilium import Trilium
+from providers.trilium import (
+    LINK_CHILD,
+    LINK_CHILD_ITEMS,
+    LINK_FLATTENED,
+    LINK_KINDS,
+    LINK_PARENT,
+    Trilium,
+)
 from providers.vikunja import Vikunja
 from watch_simulator import Watch, assert_matches_monkey_c
 
@@ -154,6 +163,9 @@ def run(fixture: Fixture) -> int:
             "a sync clears every tick", stored["d"] == [False] * len(stored["i"]), str(stored["d"])
         )
 
+        if isinstance(fixture, Trilium):
+            link_scenario(fixture, phone, admin)
+
         stack.step("11. A bad device token is refused")
         rejected = Watch(f"http://127.0.0.1:{stack.BRIDGE_PORT}", "WRON-GTOK-ENAA-AAAA")
         try:
@@ -169,6 +181,40 @@ def run(fixture: Fixture) -> int:
             bridge.wait(timeout=20)
         stack.docker_remove(fixture.container)
         shutil.rmtree(workspace, ignore_errors=True)
+
+
+def link_scenario(fixture: Trilium, phone: httpx.Client, admin: str) -> None:
+    """A note that links to another note brings that checklist in under it."""
+    stack.step("10b. A link to another checklist is unrolled for the watch")
+    parent, child = fixture.seed_links()
+    selection = phone.put(f"{admin}/selection", json={"source_ids": [parent, child]})
+    stack.check("both notes selected", selection.status_code == 200)
+    report = phone.post("/api/v1/admin/refresh").json()
+    stack.check("refresh reported no errors", report["ok"], str(report.get("errors")))
+
+    device_token = phone.get("/api/v1/admin/state").json()["device_token"]
+    watch = Watch(f"http://127.0.0.1:{stack.BRIDGE_PORT}", device_token)
+    watch.sync()
+    by_name = {item["n"]: item for item in watch.checklists}
+    stack.check(f"both lists reached the watch: {sorted(by_name)}", len(by_name) == 2)
+    unrolled = by_name[LINK_PARENT]
+    stack.check(
+        f"the parent holds the child's items under the link: {unrolled['i']}",
+        unrolled["i"] == LINK_FLATTENED,
+    )
+    stack.check(
+        f"each item knows its depth and which is the heading: {unrolled.get('k')}",
+        unrolled.get("k") == LINK_KINDS,
+    )
+    stack.check(
+        "the child is still a list of its own", by_name[LINK_CHILD]["i"] == LINK_CHILD_ITEMS
+    )
+    index = {row.split("  (")[0]: row for row in watch.index_menu()}
+    stack.check(
+        f"the heading is not counted as an item to do: {index[LINK_PARENT]}",
+        "0/4 done" in index[LINK_PARENT],
+    )
+    print("    " + "\n    ".join(watch.items_menu(watch.checklists.index(unrolled))))
 
 
 def install_cert() -> int:

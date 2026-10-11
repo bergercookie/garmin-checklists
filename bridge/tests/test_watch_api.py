@@ -77,3 +77,24 @@ def test_a_percent_encoded_checklist_id_resolves(
     response = client.get(f"{WATCH}/lists/fake%3Aa", headers=device_headers)
     assert response.status_code == 200
     assert response.json()["n"] == "Dive kit"
+
+
+def test_a_list_that_links_to_another_arrives_unrolled_with_its_depths(
+    client: TestClient, service: ChecklistService, device_headers: dict[str, str]
+) -> None:
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a", "b"])
+    fakes.LINKS["a"] = {1: ("b",)}
+    service.refresh()
+
+    payload = client.get(f"{WATCH}/lists/fake:a", headers=device_headers).json()
+    assert payload["i"] == ["Mask", "Fins", "Passport"]
+    # Depth times two, plus one for the heading: Fins stands for Travel.
+    assert payload["k"] == [0, 1, 2]
+
+
+def test_a_plain_list_carries_no_depth_key_at_all(
+    client: TestClient, service: ChecklistService, device_headers: dict[str, str]
+) -> None:
+    configure_fake(service)
+    assert "k" not in client.get(f"{WATCH}/lists/fake:a", headers=device_headers).json()

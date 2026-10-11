@@ -6,6 +6,8 @@ from checklists_bridge.models import (
     MAX_ITEMS_PER_CHECKLIST,
     Checklist,
     DomainError,
+    Link,
+    clean_entries,
     clean_items,
     clean_name,
     qualify,
@@ -53,3 +55,34 @@ def test_clean_items_rejects_a_bare_string() -> None:
 def test_checklist_dict_round_trip() -> None:
     checklist = Checklist(id="local:a", name="Kit", items=("Mask", "Fins"))
     assert Checklist.from_dict(checklist.to_dict()) == checklist
+
+
+def test_a_linked_checklist_survives_a_dict_round_trip() -> None:
+    checklist = Checklist(
+        id="trilium:a",
+        name="Home",
+        items=("Lights", "Night", "x"),
+        links=(Link(index=1, targets=("n1", "n2")),),
+        depths=(0, 0, 1),
+        groups=(1,),
+    )
+    assert Checklist.from_dict(checklist.to_dict()) == checklist
+
+
+def test_a_plain_checklist_stores_no_link_fields_at_all() -> None:
+    # So a data file written before links existed reads back unchanged, and one
+    # written now is no bigger.
+    assert set(Checklist(id="a:b", name="Kit", items=("x",)).to_dict()) == {"id", "name", "items"}
+
+
+def test_clean_entries_keeps_each_link_on_the_item_it_belonged_to() -> None:
+    items, links = clean_entries(
+        [("  ", ("ghost",)), ("Mask", ()), ("Night  routine", ("n1",)), ("", ()), ("End", ("n2",))]
+    )
+    assert items == ("Mask", "Night routine", "End")
+    assert links == (Link(index=1, targets=("n1",)), Link(index=2, targets=("n2",)))
+
+
+def test_clean_entries_caps_the_count() -> None:
+    items, links = clean_entries((f"x{n}", ("t",)) for n in range(MAX_ITEMS_PER_CHECKLIST + 20))
+    assert len(items) == len(links) == MAX_ITEMS_PER_CHECKLIST

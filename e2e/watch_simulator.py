@@ -27,6 +27,8 @@ LIST_PATH = "/api/v1/watch/lists/{id}"
 
 #: Mirrors the dictionary Store.mc persists.
 KEY_ID, KEY_NAME, KEY_ITEMS, KEY_DONE = "id", "n", "i", "d"
+#: Optional: one number per item, its depth times two plus one for a heading.
+KEY_KINDS = "k"
 
 
 class WatchError(RuntimeError):
@@ -75,6 +77,12 @@ class Watch:
                 KEY_NAME: item[KEY_NAME],
                 KEY_ITEMS: list(item[KEY_ITEMS]),
                 KEY_DONE: [False] * len(item[KEY_ITEMS]),
+                # Kept only when well formed, as Store.replaceAllAt does.
+                **(
+                    {KEY_KINDS: list(item[KEY_KINDS])}
+                    if len(item.get(KEY_KINDS, ())) == len(item[KEY_ITEMS])
+                    else {}
+                ),
             }
             for item in fetched
         ]
@@ -87,24 +95,45 @@ class Watch:
 
     def index_menu(self) -> list[str]:
         """What the checklist menu shows, including the trailing Sync and Settings entries."""
+        # Headings cannot be ticked, so they are not counted (ItemKind.mc).
         rows = [
-            f"{item[KEY_NAME]}  ({sum(item[KEY_DONE])}/{len(item[KEY_DONE])} done)"
+            f"{item[KEY_NAME]}  ({sum(item[KEY_DONE])}/"
+            f"{sum(1 for index in range(len(item[KEY_ITEMS])) if not is_heading(item, index))}"
+            " done)"
             for item in self.checklists
         ]
         return [*rows, "Sync now", "Settings"]
 
     def items_menu(self, list_index: int) -> list[str]:
+        """The rows of one checklist: boxes, indented by depth; headings bare."""
         checklist = self.checklists[list_index]
-        return [
-            f"[{'x' if done else ' '}] {label}"
-            for label, done in zip(checklist[KEY_ITEMS], checklist[KEY_DONE], strict=True)
-        ]
+        rows = []
+        for index, (label, done) in enumerate(
+            zip(checklist[KEY_ITEMS], checklist[KEY_DONE], strict=True)
+        ):
+            indent = "  " * (raw_kind(checklist, index) // 2)
+            if is_heading(checklist, index):
+                rows.append(f"{indent}{label}")
+            else:
+                rows.append(f"{indent}[{'x' if done else ' '}] {label}")
+        return rows
+
+
+def raw_kind(checklist: dict[str, Any], index: int) -> int:
+    """ItemKind.raw: the item's depth times two plus one for a heading, else 0."""
+    kinds = checklist.get(KEY_KINDS, [])
+    return int(kinds[index]) if 0 <= index < len(kinds) and kinds[index] > 0 else 0
+
+
+def is_heading(checklist: dict[str, Any], index: int) -> bool:
+    return raw_kind(checklist, index) % 2 == 1
 
 
 def assert_matches_monkey_c() -> list[str]:
     """Fail if the Monkey C sources no longer match this simulator."""
     sync = (WATCH_SOURCE / "SyncTask.mc").read_text()
     store = (WATCH_SOURCE / "Store.mc").read_text()
+    kinds = (WATCH_SOURCE / "ItemKind.mc").read_text()
     checks = [
         (f"SyncTask.mc requests {INDEX_PATH}", f'"{INDEX_PATH}"' in sync),
         ("SyncTask.mc asks the bridge to refresh", '"refresh" => "true"' in sync),
@@ -114,6 +143,9 @@ def assert_matches_monkey_c() -> list[str]:
             (f"Store.mc persists key {key!r}", f'"{key}"' in store)
             for key in (KEY_ID, KEY_NAME, KEY_ITEMS, KEY_DONE)
         ],
+        (f"Store.mc keeps the optional key {KEY_KINDS!r}", f'source["{KEY_KINDS}"]' in store),
+        ("ItemKind.mc reads depth as half the number", "value / 2" in kinds),
+        ("ItemKind.mc reads a heading as an odd number", "% 2 == 1" in kinds),
         (
             "Store.replaceAll clears ticks",
             re.search(r"unticked\(items\.size\(\)\)", store) is not None,

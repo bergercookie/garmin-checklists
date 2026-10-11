@@ -29,3 +29,8 @@ watch-e2e:
 # up to six minutes, most of it waiting for the clear time.
 watch-e2e-features:
     uv run --project "{{root}}/bridge" python "{{root}}/e2e/simulator_features.py"
+
+# Linked checklists in the real app: a Trilium note that links to another note
+# shows that note's items under a heading. Needs what watch-e2e needs.
+watch-e2e-links:
+    uv run --project "{{root}}/bridge" python "{{root}}/e2e/simulator_links.py"

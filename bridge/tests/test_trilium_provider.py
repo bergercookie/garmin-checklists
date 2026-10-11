@@ -282,3 +282,19 @@ def test_a_401_that_is_not_trilium_shaped_is_also_blamed_on_the_proxy() -> None:
     provider = fake_trilium({SEARCH: deny})
     with pytest.raises(ProviderAuthError, match="in front of Trilium"):
         provider.list_sources()
+
+
+def test_fetch_reports_which_items_link_to_other_notes() -> None:
+    provider = fake_trilium(
+        {
+            "/etapi/notes/abc123": note("abc123", "Home"),
+            "/etapi/notes/abc123/content": (
+                "<p>[] Lights</p>"
+                '<p>[] <a href="#root/abc123/night456">Night routine</a></p>'
+                "<p>[] Sleep</p>"
+            ),
+        }
+    )
+    checklist = provider.fetch("abc123")
+    assert checklist.items == ("Lights", "Night routine", "Sleep")
+    assert [(link.index, link.targets) for link in checklist.links] == [(1, ("night456",))]

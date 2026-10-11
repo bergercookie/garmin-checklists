@@ -12,9 +12,10 @@ import logging
 import time
 from collections.abc import Iterator, Sequence
 from contextlib import closing, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
+from checklists_bridge.flatten import flatten
 from checklists_bridge.models import Checklist, SourceRef, qualify, unqualify
 from checklists_bridge.providers import REGISTRY, ProviderError, ProviderSpec, TaskProvider
 from checklists_bridge.providers.local import LocalProvider
@@ -222,9 +223,13 @@ class ChecklistService:
                         if checklist_id in previous:
                             checklists.append(previous[checklist_id])
                         continue
-                    checklists.append(
-                        Checklist(id=checklist_id, name=fetched.name, items=fetched.items)
-                    )
+                    checklists.append(replace(fetched, id=checklist_id))
+
+        # After every provider has answered, so a list can include one fetched
+        # later in the same refresh -- and, when a fetch failed, the copy kept
+        # from last time (already flattened, which flatten leaves as it is).
+        lookup = {item.id: item for item in checklists}
+        checklists = [flatten(item, lookup) for item in checklists]
 
         now = int(time.time())
         for message in errors:
