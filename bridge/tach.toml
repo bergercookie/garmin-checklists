@@ -13,6 +13,10 @@ path = "checklists_bridge.models"
 depends_on = []
 
 [[modules]]
+path = "checklists_bridge.flatten"
+depends_on = ["checklists_bridge.models"]
+
+[[modules]]
 path = "checklists_bridge.config"
 depends_on = []
 
@@ -31,6 +35,7 @@ depends_on = ["checklists_bridge.models", "checklists_bridge.security"]
 [[modules]]
 path = "checklists_bridge.service"
 depends_on = [
+    "checklists_bridge.flatten",
     "checklists_bridge.models",
     "checklists_bridge.providers",
     "checklists_bridge.security",

@@ -35,7 +35,52 @@ Both forms can live in one note. A leading bullet is fine (`- [] Fins`), as is
 no space (`[]Fins`). Bold or italic inside the line is stripped. Text notes and
 plain-text code notes both work.
 
-Limits: 100 items per checklist, 64 characters per item, 32 per name, 200 notes
+## Linking one checklist to another
+
+A checklist item can **link to another note**, and if that note is a checklist
+you have imported too, its items are shown right there, under the item that
+links to it. Use Trilium's own links: *Insert → Link*, or type `@` and pick a
+note, inside a checkbox item.
+
+```text
+[] Lights out
+[] Night routine          <- a link to your "Night routine" note
+[] Sleep
+```
+
+becomes, on the watch:
+
+| ![A checklist with a linked checklist under it](images/fenix7-linked.png) |
+| --- |
+| *Night routine* is a heading; its items sit indented beneath it |
+
+- **The item becomes a heading.** It is shown in orange, in smaller type, with
+  no box: UP and DOWN step over it, and it does not count towards `n/m done`.
+  The linked list's items follow it, indented one step, each with its own box.
+- **Both notes have to be imported.** A link only counts if the note it points
+  at is one of your selected checklists. A link to anything else -- a web page,
+  a note that is not selected -- is left as an ordinary item with the link's
+  text.
+- **Links nest** up to three levels (a list that links to a list that links to
+  a list). A link deeper than that, and a link back to a list that is already
+  open, are left as ordinary items, so a loop can never make a list endless.
+- **A linked list that is empty** is shown as an ordinary item.
+- **The same list may be linked twice**; it is unrolled each time, with its own
+  boxes.
+- **The linked list is still a checklist of its own**, in the index as usual.
+  Its items are copied in at sync time, so editing it in Trilium changes every
+  list that links to it, from the next sync.
+- **Text around the link stays.** `[] Do the <link> before bed` becomes the
+  heading *Do the Night routine before bed*.
+- If an item links to several notes, the first one that is an imported
+  checklist is used.
+- Everything the link brings in counts towards the 100-item limit below, and
+  anything past it is dropped from the end.
+
+This works for Trilium notes only: Vikunja task titles and the bridge's own
+lists are plain text and have nowhere to put a link.
+
+Limits: 100 items per checklist, counting what links bring in, 64 characters per item, 32 per name, 200 notes
 in the picker.
 
 ## Requirements
@@ -113,6 +158,7 @@ placeholder. It simply stops appearing in the picker.
 | `Trilium has nothing at /notes/…` | The note was deleted; untick it in the picker |
 | `is not a usable Trilium URL` | Missing `https://`, or `/etapi` left on the end |
 | A note is missing from the picker | No `#checklist` label, or it is protected |
+| A link shows as plain text, not as a heading | The note it points at is not imported, or is an ordinary web link, or would make the list include itself |
 | An imported checklist is empty | Nothing in it is a checkbox — neither a toolbar checkbox nor a line starting `[]` |
 
 ## When Trilium is behind SSO

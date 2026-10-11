@@ -8,6 +8,7 @@
 | The web UI, in a browser | `just check-ui` | Chromium | ~10s |
 | End-to-end, real watch app | `just watch-e2e` | Docker + Connect IQ SDK | ~2min |
 | Watch features: long-press sync, daily clear | `just watch-e2e-features` | Connect IQ SDK | ~6min |
+| Linked checklists, on the watch | `just watch-e2e-links` | Docker + Connect IQ SDK | ~2min |
 | Monkey C unit tests | `just watch-test` | Connect IQ SDK | ~1min |
 
 Everything runs through the justfile. `just check-justfile` fails if a workflow
@@ -91,6 +92,16 @@ Two things to know before changing the harness:
 It clicks on-screen buttons because the keyboard is only partly mapped, and it
 wipes the simulator's state directory first because a stored `.SET` beats the
 compiled defaults.
+
+### Linked checklists
+
+`just watch-e2e-links` starts a real Trilium, seeds a note that links to another
+note, and has the real app draw the result. The link must be a heading, in the
+heading colour and only on the list that has one; one press of DOWN must move
+the focus two rows across it, and UP must come back; and ticking the linked
+item must work. The simulator's own `just e2e-trilium` covers the same chain
+without the watch (step 10b), and `test_flatten.py` the unrolling rules.
+`just screenshots-links` refreshes the picture used in the docs.
 
 ### The watch's own behaviour
 

@@ -17,6 +17,11 @@ watch-build:
 screenshots:
     uv run --project "{{root}}/bridge" python "{{root}}/e2e/capture_screenshots.py"
 
+# Refresh the linked-lists screenshot in docs/images. Same prerequisites as
+# watch-e2e-links; CIQ_DEVICE picks the device. Run after `screenshots`.
+screenshots-links:
+    uv run --project "{{root}}/bridge" python "{{root}}/e2e/simulator_links.py" --publish-screenshots
+
 # Warn when docs/images is older than watch/. Needs no SDK; never fails.
 screenshots-check:
     uv run --project "{{root}}/bridge" python "{{root}}/tools/check_screenshots.py"

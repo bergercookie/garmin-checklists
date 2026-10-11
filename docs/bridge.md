@@ -144,7 +144,12 @@ Watch — needs `Authorization: Bearer <device token>`:
 | Method | Path | Returns |
 | --- | --- | --- |
 | GET | `/api/v1/watch/lists?refresh=true` | `{"v":1,"t":…,"l":[{"id","n","c"}]}` |
-| GET | `/api/v1/watch/lists/{id}` | `{"id","n","i":[…]}` |
+| GET | `/api/v1/watch/lists/{id}` | `{"id","n","i":[…]}`, plus `"k":[…]` if the list links to others |
+
+`k` has one number per item: its depth times two, plus one if it is a heading --
+the item that stands for a linked list, whose items follow it one level deeper.
+It is left out of a list with no links, which is every list that has none.
+Links are unrolled on the bridge; see [Trilium](trilium.md#linking-one-checklist-to-another).
 
 Browser — needs the session cookie: `/api/v1/admin/…`. `GET /healthz` is open.
 

@@ -125,6 +125,7 @@ just watch-build                 # compile only, both devices at type-check leve
 just watch-sim                   # compile + launch in the simulator
 just watch-test                  # Monkey C unit tests (watch/tests/), in the simulator
 just watch-e2e-features          # long-press-UP sync and the daily clear, in the simulator
+just watch-e2e-links             # linked checklists (real Trilium + real watch app); needs Docker
 just watch-e2e                   # the full chain: real Vikunja, real TLS bridge,
                                   # real compiled app, real simulator, screenshots
 ```

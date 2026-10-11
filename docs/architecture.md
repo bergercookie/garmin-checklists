@@ -52,6 +52,12 @@ The watch never triggers provider calls per screen. The service keeps a
   rebuild it.
 - Everything else serves the snapshot.
 
+After every source has been read, links between them are unrolled
+(`flatten.py`): an item that links to another selected checklist of the same
+provider becomes a heading, followed by that checklist's items one level
+deeper. The watch receives the result and knows nothing about links; the rules
+for loops, depth and size are all in one place.
+
 If one source fails, its previous copy is kept and the error reported. A flaky
 A provider going down degrades to "slightly stale", never "the watch lost
 your checklists".
@@ -59,7 +65,8 @@ your checklists".
 ## Sync
 
 1. `GET /api/v1/watch/lists?refresh=true` → index of `{id, name, count}`
-2. `GET /api/v1/watch/lists/{id}` per entry → item labels
+2. `GET /api/v1/watch/lists/{id}` per entry → item labels, and for a list with
+   links, each item's depth
 3. replace local storage wholesale; every item starts unticked
 
 One list per request keeps peak memory low. Ticks are written to

@@ -39,6 +39,24 @@ is fine.
 Everything else -- the clock and auto-sync -- is a toggle in the watch's own
 **Settings**, below.
 
+## Linked checklists
+
+A checklist can include another one. In Trilium, link a checkbox item to
+another checklist note and the bridge sends that list's items along with it:
+
+| ![A checklist with a linked checklist under it](images/fenix7-linked.png) |
+| --- |
+| The linked list's name is a heading; its items are indented under it |
+
+- The heading is orange and has no box. **UP** and **DOWN** step over it.
+- It does not count towards `n/m done` in the index, and nothing on it can be
+  ticked or left unticked.
+- The indent shows which items belong to which list, to three levels.
+- A sync and the daily clear treat every item alike, linked or not.
+
+How links are written, and what is and is not followed, is in
+[Trilium](trilium.md#linking-one-checklist-to-another).
+
 ## Daily clear
 
 Every checklist is unticked once a day, at a time you choose on the watch, so a
@@ -190,6 +208,7 @@ headless under `Xvfb`.
 | `AutoSync.mc` | The hourly background sync: scheduling and the service delegate |
 | `MainView.mc` / `MainDelegate.mc` | Home screen and input |
 | `ListMenu.mc` | The scrolling list every screen below is built on, and its input, including MENU to sync |
+| `ItemKind.mc` | Reads a list's optional per-item depth and heading flags |
 | `IndexMenu.mc` | The list of checklists |
 | `ItemsMenu.mc` | One checklist as boxes to tick |
 | `SettingsMenu.mc` | The watch's own settings |
