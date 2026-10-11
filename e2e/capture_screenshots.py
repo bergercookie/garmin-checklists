@@ -149,6 +149,24 @@ def run() -> int:
         stack.check("back returned to the index", sim.press_back(workspace, "back"))
         index_after = capture("06-index-progress", workspace)
 
+        # DOWN to Settings, the last row: the lists, then "Sync now", then it.
+        for press in range(3):
+            stack.check(
+                "DOWN moved the focus",
+                sim.press(sim.DOWN_BUTTON, workspace, f"down-{press}"),
+            )
+        stack.check("START opened Settings", sim.press_start(workspace, "settings"))
+        settings = capture("07-settings", workspace)
+
+        # Past "Show clock" and "Clear daily", to "Clear at".
+        for press in range(2):
+            stack.check(
+                "DOWN moved the focus in Settings",
+                sim.press(sim.DOWN_BUTTON, workspace, f"settings-down-{press}"),
+            )
+        stack.check("START opened the time editor", sim.press_start(workspace, "editor"))
+        clear_time = capture("08-clear-time", workspace)
+
         stack.step("4. Publish")
         IMAGES.mkdir(parents=True, exist_ok=True)
         published = {
@@ -158,6 +176,8 @@ def run() -> int:
             f"{DEVICE}-checklist.png": items,
             f"{DEVICE}-checklist-ticked.png": ticked,
             f"{DEVICE}-index-progress.png": index_after,
+            f"{DEVICE}-settings.png": settings,
+            f"{DEVICE}-clear-time.png": clear_time,
         }
         for name, source in published.items():
             shutil.copy(source, IMAGES / name)

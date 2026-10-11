@@ -17,10 +17,18 @@
     <string id="SettingAutoSync">Sync hourly (clears ticks)</string>
     <string id="SettingAutoSyncHint">Off by default</string>
 
+    <string id="SettingClearDaily">Clear daily</string>
+    <string id="SettingClearDailyHint">Unticks every list</string>
+    <string id="SettingClearAt">Clear at</string>
+    <string id="ClearAtTitle">Clear at</string>
+    <string id="ClearAtNext">START: minutes</string>
+    <string id="ClearAtSave">START: save</string>
+
     <string id="NeverSynced">Never synced</string>
     <string id="NoChecklists">No checklists yet</string>
     <string id="SyncOk">Sync complete</string>
     <string id="AutoSyncOk">Auto-synced</string>
+    <string id="DailyCleared">Lists cleared</string>
     <string id="SyncFailed">Sync failed</string>
     <string id="NotConfigured">Set URL + token</string>
     <string id="NoPhone">Phone not connected</string>

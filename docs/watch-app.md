@@ -11,9 +11,18 @@
 | Home | **START** opens the checklists · **MENU** (long UP) syncs |
 | Index | **START** opens one · last entries are **Sync now** and **Settings** |
 | Checklist | **START** ticks · **BACK** returns |
+| Settings | **START** flips a toggle or opens the time editor · **BACK** returns |
+| Every screen | **MENU** (long UP) syncs, whichever screen you are on |
+
+**UP** and **DOWN** move through a list on every screen.
 
 A sync replaces every checklist and clears every tick. That is how you reset a
-template for its next use.
+template for its next use -- or let the [daily clear](#daily-clear) do it.
+
+**MENU** syncs from anywhere in the app: from inside a checklist, from
+Settings, even from the clear-time editor. Every screen is closed first and the
+progress bar runs over the home screen, exactly as if you had gone back and
+pressed **MENU** there.
 
 ## Settings
 
@@ -29,6 +38,34 @@ is fine.
 
 Everything else -- the clock and auto-sync -- is a toggle in the watch's own
 **Settings**, below.
+
+## Daily clear
+
+Every checklist is unticked once a day, at a time you choose on the watch, so a
+list used yesterday starts today clean. It is **on by default, at 03:00** local
+time, and needs no phone, no bridge and no background process.
+
+| ![Settings](images/fenix7-settings.png) | ![Setting the clear time](images/fenix7-clear-time.png) |
+| --- | --- |
+| Settings | The time editor, opened by **Clear at** |
+
+| Setting (**Settings** on the watch) | Default | Effect |
+| --- | --- | --- |
+| Clear daily | On | Switches the daily clear on or off |
+| Clear at | 03:00 | Opens the time editor: **UP/DOWN** change the hour, **START** moves to the minutes (steps of five), **START** saves, **BACK** abandons the change |
+
+- It clears the *ticks*, nothing else: the checklists and the time of the last
+  sync are untouched, and the bridge is never contacted.
+- The watch does not wake itself at 03:00. When the app is next started -- or
+  you are back on the home screen or the index -- it sees that the time has
+  passed since the last clear and unticks everything then. You cannot tell that
+  apart from a clear at exactly 03:00, except that a list you are looking at
+  stays as it is until you leave it. The home screen says *Lists cleared*.
+- It happens once per day: the ticks you make after it stay until the next
+  scheduled time. A [sync](#using-it) also counts as a clear.
+- Switching it on, or changing the time, starts counting from that moment, so
+  setting 08:00 at 14:00 does not wipe a list you are halfway through.
+- Times are local, in 24-hour form, and follow the watch's clock and time zone.
 
 ## Auto-sync
 
@@ -62,14 +99,18 @@ that belong to the watch itself, not the bridge:
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| Show clock | On | The time at the top of the home screen and of each menu, in the watch's 12h/24h format |
+| Show clock | On | The time at the top of the home screen and of each list, in the watch's 12h/24h format |
+| Clear daily | On | See [Daily clear](#daily-clear), above |
+| Clear at | 03:00 | When the daily clear happens |
 | Sync hourly (clears ticks) | Off | See [Auto-sync](#auto-sync), above |
 
-Both are kept in the app's storage on the watch, are never sent to the bridge,
-and a sync leaves them alone. Inside the menus the time shares the title area
-with the menu's name, because `Menu2` draws its rows in firmware and offers no
-way to paint over them; where the firmware scrolls the title away, the time
-goes with it.
+All are kept in the app's storage on the watch, are never sent to the bridge,
+and a sync leaves them alone.
+
+The lists are drawn by the app itself rather than with Connect IQ's `Menu2`.
+That is deliberate: a `Menu2` is run by the watch's firmware and never passes
+the **MENU** key on to the app, so no `Menu2` screen could sync on a long press
+of UP. A plain view does receive it, which is what lets every screen do so.
 
 ## Supported devices
 
@@ -144,15 +185,18 @@ headless under `Xvfb`.
 | `ChecklistsApp.mc` | Entry point |
 | `AppConfig.mc` | Reads the Garmin Connect settings |
 | `Store.mc` | Persistent checklists, tick state, the clock preference and a parked background fetch |
+| `DailyClear.mc` | The daily clear: its settings, and deciding whether its time has passed |
 | `SyncTask.mc` | Index request, then one request per checklist; shared by both syncs |
 | `AutoSync.mc` | The hourly background sync: scheduling and the service delegate |
 | `MainView.mc` / `MainDelegate.mc` | Home screen and input |
+| `ListMenu.mc` | The scrolling list every screen below is built on, and its input, including MENU to sync |
 | `IndexMenu.mc` | The list of checklists |
-| `ItemsMenu.mc` | One checklist as toggles |
-| `SettingsMenu.mc` | The watch's own settings (the clock toggle) |
-| `Clock.mc` | The time readout, its Menu2 title drawable and the minute timer |
+| `ItemsMenu.mc` | One checklist as boxes to tick |
+| `SettingsMenu.mc` | The watch's own settings |
+| `ClearTimeEditor.mc` | The screen for setting the daily clear's time |
+| `Clock.mc` | The time readout and the minute timer |
 
-Menus rebuild from storage when opened, so nothing shows stale data.
+Lists rebuild from storage when opened, so nothing shows stale data.
 
 ## Troubleshooting
 

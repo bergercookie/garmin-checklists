@@ -31,3 +31,8 @@ watch-sim: watch-build
 watch-package:
     mkdir -p build
     monkeyc -e -o build/checklists.iq -f watch/monkey.jungle -y "$CIQ_KEY" -w -l 3
+
+# Monkey C unit tests (watch/tests/), run in the Connect IQ simulator. Needs the
+# same SDK, Devices, Fonts, key and display as watch-e2e, but no Docker.
+watch-test:
+    uv run --project "{{root}}/bridge" python "{{root}}/e2e/watch_unit_tests.py"

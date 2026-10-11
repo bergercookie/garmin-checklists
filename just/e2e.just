@@ -23,3 +23,9 @@ install-cert:
 # Needs the SDK, its Devices and Fonts, a developer key, Docker and a display.
 watch-e2e:
     uv run --project "{{root}}/bridge" python "{{root}}/e2e/simulator_stack.py"
+
+# Two watch features in the real app: sync from every screen with a long press
+# of UP, and the daily clear. Needs what watch-e2e needs, minus Docker; takes
+# up to six minutes, most of it waiting for the clear time.
+watch-e2e-features:
+    uv run --project "{{root}}/bridge" python "{{root}}/e2e/simulator_features.py"

@@ -123,6 +123,8 @@ export DISPLAY=:99
 
 just watch-build                 # compile only, both devices at type-check level 3
 just watch-sim                   # compile + launch in the simulator
+just watch-test                  # Monkey C unit tests (watch/tests/), in the simulator
+just watch-e2e-features          # long-press-UP sync and the daily clear, in the simulator
 just watch-e2e                   # the full chain: real Vikunja, real TLS bridge,
                                   # real compiled app, real simulator, screenshots
 ```
@@ -163,4 +165,5 @@ session instead:
 | `Can't create a GtkStyleContext without a display connection` | No X server | `Xvfb :99 &`, `export DISPLAY=:99` |
 | `Cannot connect to the Docker daemon` | Daemon not started in this container | `sudo dockerd &` |
 | `watch-e2e` fails at "certificate installed in the system trust store" | No passwordless `sudo` | `sudo` now prompts rather than just failing, but an agent has nothing to answer that with; ask the user if passwordless sudo does not already work |
+| The simulator exits at once, status 255, printing nothing | A stale `~/Sim-root` lock left by a simulator that was killed | `rm ~/Sim-root` (the `e2e/` scripts now do this themselves when no simulator is running) |
 | "Background Events" is greyed out in the simulator menu | No app with a background service is currently running | Launch the compiled app first, then open the menu |

@@ -1,0 +1,4 @@
+# The unit-test build: the app plus tests/, which the shipped build never sees.
+# See `just watch-test`.
+project.manifest = manifest.xml
+base.sourcePath = $(base.sourcePath);tests

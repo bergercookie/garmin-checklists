@@ -7,6 +7,8 @@
 | One provider only | `just e2e-vikunja`, `just e2e-trilium` | Docker | ~1min |
 | The web UI, in a browser | `just check-ui` | Chromium | ~10s |
 | End-to-end, real watch app | `just watch-e2e` | Docker + Connect IQ SDK | ~2min |
+| Watch features: long-press sync, daily clear | `just watch-e2e-features` | Connect IQ SDK | ~6min |
+| Monkey C unit tests | `just watch-test` | Connect IQ SDK | ~1min |
 
 Everything runs through the justfile. `just check-justfile` fails if a workflow
 calls `pytest`, `ruff`, `docker` or `pre-commit` directly, or if the docs name a
@@ -89,6 +91,30 @@ Two things to know before changing the harness:
 It clicks on-screen buttons because the keyboard is only partly mapped, and it
 wipes the simulator's state directory first because a stored `.SET` beats the
 compiled defaults.
+
+### The watch's own behaviour
+
+Two more recipes, with the same SDK, Devices, Fonts, key and display as
+`watch-e2e` but no Docker.
+
+`just watch-test` compiles `watch/tests/` into the app (`watch/tests.jungle`;
+the shipped build never sees them) and runs it with `monkeydo -t`. They cover
+the daily clear's arithmetic and its rules -- once a day, never on first run,
+never when off -- against the simulator's real storage and clock.
+
+`just watch-e2e-features` drives the real app with the bridge's own checklists:
+
+- **Sync from every screen.** A held UP button on the home screen, the index, a
+  checklist, Settings and the time editor each makes the bridge log one more
+  index request, and leaves the app on the home screen: the next BACK exits it.
+  A sync from inside a checklist also unticks it.
+- **The daily clear.** It sets a time five-ish minutes ahead *through the
+  editor*, ticks an item, restarts the app before that time (still ticked),
+  waits for it, restarts again (unticked, and no sync request), then ticks and
+  restarts once more (still ticked: it clears once, not on every start).
+
+Ticks are found by counting tick-box-green pixels in a screenshot, and the
+home screen by pressing BACK and comparing with the launcher.
 
 ## Screenshots
 

@@ -13,8 +13,8 @@ import Toybox.Time;
 //! Keys are single letters because this dictionary is written to persistent
 //! storage every time the user ticks something.
 //!
-//! The watch-side preferences -- whether the clock is shown, and whether the
-//! hourly background sync is on -- live here too. Neither is checklist data,
+//! The watch-side preferences -- whether the clock is shown, whether the
+//! hourly background sync is on, and the daily clear's time -- live here too. Neither is checklist data,
 //! so a sync leaves them alone.
 //!
 //! Annotated for the background process: AutoSyncService calls savePending,
@@ -28,6 +28,10 @@ module Store {
     const KEY_SYNCED_AT = "syncedAt";
     const KEY_SHOW_CLOCK = "showClock";
     const KEY_AUTO_SYNC = "autoSync";
+    //! The daily clear's preferences and when it last ran; see DailyClear.mc.
+    const KEY_CLEAR_DAILY = "clearDaily";
+    const KEY_CLEAR_AT = "clearAt";
+    const KEY_CLEARED_AT = "clearedAt";
     //! A complete background fetch waiting to be applied:
     //!   { "t" => <epoch seconds fetched>, "l" => <what SyncTask collected> }
     const KEY_PENDING = "pending";
@@ -86,6 +90,9 @@ module Store {
         }
         Storage.setValue(KEY_LISTS, stored as Application.Storage.ValueType);
         Storage.setValue(KEY_SYNCED_AT, fetchedAt);
+        // Every tick was just cleared, so the daily clear has nothing to do
+        // until its next scheduled time.
+        Storage.setValue(KEY_CLEARED_AT, Time.now().value());
         // Any parked background fetch is this one or older than it.
         Storage.deleteValue(KEY_PENDING);
         // A stored index is only meaningful against the checklists it was
@@ -148,6 +155,17 @@ module Store {
         var items = checklist["i"] as Array<String>;
         checklist.put("d", unticked(items.size()));
         all[listIndex] = checklist;
+        Storage.setValue(KEY_LISTS, all as Application.Storage.ValueType);
+    }
+
+    //! Untick everything in every checklist.
+    function clearAllTicks() as Void {
+        var all = checklists();
+        for (var index = 0; index < all.size(); index += 1) {
+            var checklist = all[index] as Dictionary;
+            var items = checklist["i"] as Array<String>;
+            checklist.put("d", unticked(items.size()));
+        }
         Storage.setValue(KEY_LISTS, all as Application.Storage.ValueType);
     }
 
