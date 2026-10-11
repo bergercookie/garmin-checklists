@@ -21,12 +21,11 @@ just check-ui    # web UI in Chromium; skips itself if no browser is present
 `just e2e` (Python stand-in watch, real Vikunja/Trilium) only needs Docker —
 see "Docker" below if the daemon is not already running.
 
-## What the Connect IQ SDK needs, and who supplies it
+## What the Connect IQ SDK needs, and where to get it
 
-`watch-build`, `watch-sim`, `watch-e2e` and `screenshots` need three things
-from Garmin's SDK Manager, a GUI that signs in to a Garmin account. CI cannot
-fetch these either (`docs/testing.md` says so), so **ask the user to supply
-them** if they are not already present in the environment:
+`watch-build`, `watch-sim`, `watch-test`, `watch-e2e`, `watch-e2e-features` and
+`screenshots` need three things from Garmin's SDK Manager, a GUI that signs in
+to a Garmin account, so none of them can be downloaded from Garmin directly:
 
 | Path (under `~/.Garmin/ConnectIQ/`, or point `CIQ_SDK` at it) | What | Size |
 | --- | --- | --- |
@@ -34,14 +33,39 @@ them** if they are not already present in the environment:
 | `Devices/<device>/` | One directory per target device (`fenix7`, `descentg2`) | small |
 | `Fonts/` | The `.cft` files every device references | ~1 GB |
 
-Without `Fonts/` the app compiles and launches, then dies on its first
-`drawText` with *Invalid Font Specified* — a build failure this is not; check
-for that directory before concluding anything else is wrong.
+**Always fetch them from the project's shared Drive folder before testing any
+Garmin-related change** (do not ask the user, and do not hunt for them
+elsewhere):
+<https://drive.google.com/drive/folders/1GoY73Rw6ZAnFl0gFOXyEwsVGZQT_KjE_>
+
+It is link-shared, so no Drive connector is needed -- the Google Drive MCP
+tools cannot see it, but plain `curl` can. It holds two zips:
+
+| Drive file id | Contains |
+| --- | --- |
+| `1HI9Q8LewYxdOXhJXtwB1qFF_xWE7uH9R` | `home/berger/.Garmin/ConnectIQ/{Sdks,Fonts}` (SDK 8.1.1 and 9.2.0) |
+| `1MsOoNFgwwh90uce3fNFkyh-0I724D3xI` | `Devices/{fenix7,descentg2}` |
+
+```bash
+scratch=$(mktemp -d)        # untrusted downloads: keep them out of the repo
+for id in 1HI9Q8LewYxdOXhJXtwB1qFF_xWE7uH9R 1MsOoNFgwwh90uce3fNFkyh-0I724D3xI; do
+  curl -sSL -o "$scratch/$id.zip" \
+    "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
+done
+mkdir -p "$scratch/x" && unzip -q "$scratch/1HI9Q8LewYxdOXhJXtwB1qFF_xWE7uH9R.zip" -d "$scratch/x"
+rm -rf ~/.Garmin && mv "$scratch/x/home/berger/.Garmin" ~/.Garmin
+unzip -q "$scratch/1MsOoNFgwwh90uce3fNFkyh-0I724D3xI.zip" -d ~/.Garmin/ConnectIQ/
+echo ~/.Garmin/ConnectIQ/Sdks/connectiq-sdk-lin-9.2.0-* > ~/.Garmin/ConnectIQ/current-sdk.cfg
+export PATH=$PATH:$(cat ~/.Garmin/ConnectIQ/current-sdk.cfg)/bin    # monkeyc for `just watch-build`
+```
+
+About 1.1 GB, a minute or two. Check that `Fonts/` is there before concluding
+anything else is wrong (see the symptom table). If the folder ever stops being
+reachable, only then ask the user.
 
 `e2e/simulator_stack.py` finds the SDK via `CIQ_SDK`, or failing that
 `~/.Garmin/ConnectIQ/current-sdk.cfg` (a one-line text file containing the
-SDK path). If neither exists but an `Sdks/` directory does, write that file
-yourself rather than asking the user to.
+SDK path).
 
 ### What the user does *not* need to supply: a developer key
 
@@ -112,6 +136,22 @@ simulator's `LD_LIBRARY_PATH` (see `simulator_env()`); running `simulator`
 directly, export `LD_LIBRARY_PATH` yourself the same way. Check whether such a
 directory is already staged in the environment (e.g. `/opt/ciq/compat/`)
 before telling the user this cannot be done here — it very likely already can.
+
+If none is staged, build one yourself -- `archive.ubuntu.com` is reachable
+from the sandbox even though `apt` does not carry these (worked on 24.04):
+```bash
+libs=$(mktemp -d); cd "$libs"; base=http://archive.ubuntu.com/ubuntu/pool/main
+curl -sSO $base/w/webkit2gtk/libwebkit2gtk-4.0-37_2.50.4-0ubuntu0.22.04.1_amd64.deb
+curl -sSO $base/w/webkit2gtk/libjavascriptcoregtk-4.0-18_2.50.4-0ubuntu0.22.04.1_amd64.deb
+curl -sSO $base/libs/libsoup2.4/libsoup2.4-1_2.74.2-3ubuntu0.9_amd64.deb
+curl -sSO $base/i/icu/libicu70_70.1-2ubuntu1_amd64.deb
+for d in *.deb; do dpkg-deb -x "$d" ex; done
+mkdir compat && cp -a ex/usr/lib/x86_64-linux-gnu/* compat/
+sudo apt-get install -y libsecret-1-0 libgstreamer-gl1.0-0 libenchant-2-2 \
+    libwayland-server0 libmanette-0.2-0 libwoff1 xdotool imagemagick   # what `ldd` still lacks
+export CIQ_COMPAT_LIBS=$libs/compat
+```
+Also needed by the e2e scripts: `just` (`uv tool install rust-just`).
 
 ## Running it
 
