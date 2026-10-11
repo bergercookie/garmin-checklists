@@ -1,7 +1,8 @@
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-//! Input on the home screen: START opens the checklists, MENU syncs. START
+//! Input on the home screen: START opens the checklists, MENU syncs. MENU
+//! (long-press UP) syncs from every list screen as well; see ListMenuDelegate. START
 //! also resumes straight into whichever checklist was last opened, and so
 //! does app launch itself when that checklist has ticks in progress.
 class MainDelegate extends WatchUi.BehaviorDelegate {
@@ -44,21 +45,32 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
     //! straight on top of that -- shared by START from home and, when app
     //! launch decides there is progress worth resuming, by getInitialView.
     function enterChecklists() as Void {
-        WatchUi.pushView(new IndexMenu(), new IndexMenuDelegate(self), WatchUi.SLIDE_LEFT);
+        IndexMenu.push(self);
         // The index is still underneath for BACK, and its counts are
         // refreshed in onShow on the way back to it -- this only shortcuts
         // the trip in, not the ability to see or reach anything else.
         var lastIndex = Store.lastChecklistIndex();
         if (lastIndex != null) {
-            WatchUi.pushView(
-                ItemsMenu.build(lastIndex), new ItemsMenuDelegate(lastIndex), WatchUi.SLIDE_LEFT
-            );
+            ItemsMenu.push(lastIndex, self);
         }
     }
 
     function onMenu() as Boolean {
         startSync();
         return true;
+    }
+
+    //! MENU pressed on a screen above the home screen: drop depth views, then
+    //! sync. Every list on the stack was built from the checklists a sync is
+    //! about to replace, so none may be left open under the progress bar.
+    function syncFromMenu(depth as Number) as Void {
+        if (_syncing) {
+            return;
+        }
+        for (var level = 0; level < depth; level += 1) {
+            WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        }
+        startSync();
     }
 
     //! Fetch everything from the bridge, showing a progress bar meanwhile.
@@ -121,6 +133,9 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
         if (_autoSyncWaiting && !_syncing) {
             _autoSyncWaiting = false;
             applyAutoSync();
+        }
+        if (!_syncing && DailyClear.apply()) {
+            _view.setMessage(WatchUi.loadResource(Rez.Strings.DailyCleared) as String);
         }
     }
 

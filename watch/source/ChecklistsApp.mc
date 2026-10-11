@@ -60,6 +60,9 @@ class ChecklistsApp extends Application.AppBase {
         // Nothing is on screen yet, so a parked background sync is safe to
         // apply before the first view reads storage.
         var applied = Store.applyPending();
+        // Likewise for the daily clear, if its time has passed since the app
+        // last ran. After applyPending, which counts as a clear itself.
+        var cleared = DailyClear.apply();
         var clock = new ClockTicker();
         _clock = clock;
         // onStart, which arms the clock, may already have run and found
@@ -70,6 +73,8 @@ class ChecklistsApp extends Application.AppBase {
         var main = new MainDelegate(view);
         if (applied) {
             main.showAutoSynced();
+        } else if (cleared) {
+            view.setMessage(WatchUi.loadResource(Rez.Strings.DailyCleared) as String);
         }
         _main = main;
         // Skip the home screen itself only for a checklist genuinely in

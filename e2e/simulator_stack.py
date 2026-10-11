@@ -38,10 +38,13 @@ GARMIN_HOME = Path.home() / ".Garmin" / "ConnectIQ"
 #: Where to click for each device's START button, in the simulator window.
 #: Derived by eye once per device; every click asserts the screen changed, so a
 #: wrong coordinate fails loudly instead of silently doing nothing.
-#: Only BACK and START are needed; the simulator's keyboard mapping does not
-#: cover them, so they are clicked on the device image.
+#: The simulator's keyboard mapping does not cover them, so they are clicked on
+#: the device image.
 START_BUTTON = {"fenix7": (378, 197), "descentg2": (588, 300)}
 BACK_BUTTON = {"fenix7": (378, 400), "descentg2": (588, 600)}
+#: UP is also MENU when held; see simulator_features.py.
+UP_BUTTON = {"fenix7": (14, 295), "descentg2": (23, 440)}
+DOWN_BUTTON = {"fenix7": (35, 396), "descentg2": (54, 590)}
 
 #: The simulator's stand-in for the watch's filesystem. It keeps app settings
 #: here, and a stored value beats the defaults compiled into the .prg -- so a
@@ -258,8 +261,21 @@ def simulator_env() -> dict[str, str]:
     return environment
 
 
+#: The simulator's single-instance lock. A simulator stopped with SIGTERM, as
+#: these runs stop it, leaves the file behind, and the next one then exits
+#: straight away with status 255 and no output.
+SIMULATOR_LOCK = Path.home() / "Sim-root"
+
+
 def start_simulator(sdk: Path) -> subprocess.Popen[bytes]:
     shutil.rmtree(SIMULATOR_STATE_PATH, ignore_errors=True)
+    # One that was just stopped may still be exiting; give it a moment before
+    # concluding the lock is stale rather than a running simulator's.
+    for _ in range(10):
+        if subprocess.run(["pgrep", "-x", "simulator"], capture_output=True).returncode != 0:
+            SIMULATOR_LOCK.unlink(missing_ok=True)
+            break
+        time.sleep(1)
     process = subprocess.Popen(
         [str(sdk / "bin" / "simulator")],
         env=simulator_env(),

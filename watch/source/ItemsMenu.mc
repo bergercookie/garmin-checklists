@@ -1,49 +1,54 @@
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-//! One checklist as a menu of toggles. Ticking is watch-local and instant: the
+//! One checklist as a list of boxes. Ticking is watch-local and instant: the
 //! bridge is never told, by design.
 module ItemsMenu {
 
-    function build(listIndex as Number) as WatchUi.Menu2 {
+    function push(listIndex as Number, main as MainDelegate) as Void {
+        var view = build(listIndex);
+        WatchUi.pushView(view, new ItemsMenuDelegate(view, listIndex, main), WatchUi.SLIDE_LEFT);
+    }
+
+    function build(listIndex as Number) as ListMenuView {
         var checklist = Store.checklistAt(listIndex);
         if (checklist == null) {
-            return new WatchUi.Menu2({
-                :title => Clock.title(WatchUi.loadResource(Rez.Strings.MenuTitle) as String)
-            });
+            return new ListMenuView(
+                WatchUi.loadResource(Rez.Strings.MenuTitle) as String, [] as Array<MenuRow>, 0
+            );
         }
-        // The checklist's name stays the title; the clock, when on, sits above it.
-        var menu = new WatchUi.Menu2({ :title => Clock.title(checklist["n"] as String) });
         var items = checklist["i"] as Array<String>;
         var done = checklist["d"] as Array<Boolean>;
+        var rows = [] as Array<MenuRow>;
         for (var index = 0; index < items.size(); index += 1) {
-            menu.addItem(
-                new WatchUi.ToggleMenuItem(items[index], null, index, done[index], null)
-            );
+            rows.add(new MenuRow(index, items[index], null, done[index]));
         }
         // -1 when everything is ticked; the top is then the least surprising
         // place to land.
         var focus = done.indexOf(false);
-        if (focus > 0) {
-            menu.setFocus(focus);
-        }
-        return menu;
+        return new ListMenuView(checklist["n"] as String, rows, focus > 0 ? focus : 0);
     }
 }
 
-class ItemsMenuDelegate extends WatchUi.Menu2InputDelegate {
+class ItemsMenuDelegate extends ListMenuDelegate {
 
     private var _listIndex as Number;
 
-    function initialize(listIndex as Number) {
-        Menu2InputDelegate.initialize();
+    function initialize(view as ListMenuView, listIndex as Number, main as MainDelegate) {
+        // Home, the index, then this list.
+        ListMenuDelegate.initialize(view, main, 2);
         _listIndex = listIndex;
     }
 
-    //! The framework has already flipped the toggle; persist the new state.
-    function onSelect(item as WatchUi.MenuItem) as Void {
-        if (item instanceof WatchUi.ToggleMenuItem) {
-            Store.setTicked(_listIndex, item.getId() as Number, item.isEnabled());
+    //! Flip the box and persist the new state.
+    function choose(index as Number) as Void {
+        var row = _view.row(index);
+        if (row == null || row.on == null) {
+            return;
         }
+        var ticked = !(row.on as Boolean);
+        row.on = ticked;
+        Store.setTicked(_listIndex, row.id as Number, ticked);
+        WatchUi.requestUpdate();
     }
 }
