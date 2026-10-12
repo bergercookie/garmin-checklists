@@ -1,0 +1,200 @@
+name: Nightly
+
+# An image of `main` every night, whether or not anything was tagged, so what is
+# on main can be run without waiting for a release -- and is skipped on a night
+# when main has not moved since the last image was built.
+#
+# Nightlies are for trying things, not for depending on. They are tagged
+#
+#   ghcr.io/OWNER/REPO:nightly                    the newest one, moves every build
+#   ghcr.io/OWNER/REPO:0.2.1.dev202610120300      this build, which never moves
+#   ghcr.io/OWNER/REPO:sha-1a2b3cd                the commit it was built from
+#
+# and never `latest`, which stays the newest release. The version is the next
+# release's number as a dated development release: a valid Python (PEP 440)
+# version and a valid Docker tag, which hatch-vcs's own `0.2.1.dev4+g1a2b3cd`
+# is not -- a registry rejects the `+`. See tools/nightly_version.py.
+on:
+  schedule:
+    # 03:00 UTC. Off the hour, because the top of the hour is when everybody's
+    # scheduled jobs start and GitHub drops or delays some of them.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Build even if main has not changed since the last nightly"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Two nightlies would race over the `nightly` tag.
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  # Decides whether there is anything to build. Cheap, so a quiet night costs a
+  # few seconds rather than an emulated arm64 build.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - name: Has main moved since the last nightly?
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          # Only main is ever built: a nightly of some other branch would
+          # overwrite the `nightly` tag with it.
+          if [ "${REF}" != "refs/heads/main" ]; then
+            echo "Not main (${REF}); nothing to build."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${FORCE}" = "true" ]; then
+            echo "Forced; building ${SHA}."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The commit of the newest earlier run that succeeded. A run that
+          # skipped for lack of changes succeeds too, and is on the same commit
+          # as the build it skipped for, so it is as good a record as the build
+          # itself. A run that failed is not a success, so a night when the build
+          # broke is tried again the next night even if main has not moved.
+          last=$(gh run list --repo "${REPOSITORY}" --workflow nightly.yml \
+            --status success --limit 1 --json headSha --jq '.[0].headSha // ""')
+          if [ "${last}" = "${SHA}" ]; then
+            echo "main is still ${SHA}, which the last nightly built; skipping."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "main is ${SHA}; the last nightly was ${last:-none}. Building."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  image:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    # An emulated arm64 build that wedges should not burn the 6-hour default.
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The version is worked out from the latest tag, which a shallow clone
+          # does not have.
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - uses: extractions/setup-just@v4
+
+      - name: Work out the version and the image name
+        id: names
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "version=$(just nightly-version)" >> "$GITHUB_OUTPUT"
+          # ghcr rejects an uppercase path, and github.repository preserves the
+          # owner's capitalisation.
+          echo "ghcr_image=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      # The same gate as a release, short of the tag: nothing is published from
+      # a main that does not pass its own suite.
+      - run: just install
+      - run: just check
+      # The image is built from a context with no git history, so it is told its
+      # version. Prove it reports it, and that what ships actually serves.
+      - env:
+          VERSION: ${{ steps.names.outputs.version }}
+        run: just check-image-version "$VERSION"
+      - run: just image-test
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Docker Hub is optional, exactly as for a release: set the
+      # DOCKERHUB_REPOSITORY variable and the DOCKERHUB_USERNAME/DOCKERHUB_TOKEN
+      # secrets to switch it on.
+      - name: Log in to Docker Hub
+        if: vars.DOCKERHUB_REPOSITORY != ''
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Decide which registries to push to
+        id: registries
+        env:
+          GHCR_IMAGE: ${{ steps.names.outputs.ghcr_image }}
+          DOCKERHUB_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY }}
+        run: |
+          images="${GHCR_IMAGE}"
+          if [ -n "${DOCKERHUB_REPOSITORY}" ]; then
+            images="${images}"$'\n'"${DOCKERHUB_REPOSITORY}"
+          fi
+          {
+            echo 'images<<EOF'
+            echo "${images}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ${{ steps.registries.outputs.images }}
+          # Never `latest`: that is the newest release, and a nightly is not one.
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=nightly
+            type=raw,value=${{ steps.names.outputs.version }}
+            type=sha,prefix=sha-,format=short
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ./bridge
+          build-args: |
+            APP_VERSION=${{ steps.names.outputs.version }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        env:
+          IMAGE: ${{ steps.names.outputs.ghcr_image }}
+          VERSION: ${{ steps.names.outputs.version }}
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "### Nightly image"
+            echo
+            echo "Built from \`${SHA}\` as version \`${VERSION}\`."
+            echo
+            echo '```'
+            echo "docker pull ${IMAGE}:nightly"
+            echo "docker pull ${IMAGE}:${VERSION}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

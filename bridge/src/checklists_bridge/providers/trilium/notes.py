@@ -26,7 +26,7 @@ below rather than two parsers that have to agree.
 **Links to other checklists.** An item may contain a link to another note --
 the editor's *Insert → Link* or a typed ``[[`` reference, or any ordinary
 ``<a href="#root/…/noteId">``. The note id is read from the link, and the
-bridge unrolls the item into that checklist if it is one it already serves (see
+bridge unrolls the item into that checklist if the note is one (see
 flatten.py). So ``[] <a href="#root/x/abc123">LKP night routine</a>`` brings in
 the *LKP night routine* checklist under that item. The link text stays as the
 item's own text; whether it resolves is decided later, not here.

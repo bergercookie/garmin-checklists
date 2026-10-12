@@ -216,6 +216,19 @@ def link_scenario(fixture: Trilium, phone: httpx.Client, admin: str) -> None:
     )
     print("    " + "\n    ".join(watch.items_menu(watch.checklists.index(unrolled))))
 
+    # The linked note need not be imported: it only has to be a checklist.
+    phone.put(f"{admin}/selection", json={"source_ids": [parent]}).raise_for_status()
+    stack.check("only the linking note selected", phone.post("/api/v1/admin/refresh").json()["ok"])
+    watch.sync()
+    stack.check(
+        f"the child is not a list of its own: {[item['n'] for item in watch.checklists]}",
+        [item["n"] for item in watch.checklists] == [LINK_PARENT],
+    )
+    stack.check(
+        f"yet its items are still there under the link: {watch.checklists[0]['i']}",
+        watch.checklists[0]["i"] == LINK_FLATTENED,
+    )
+
 
 def install_cert() -> int:
     """Trust a self-signed certificate for 127.0.0.1 system-wide, then stop.

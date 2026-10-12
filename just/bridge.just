@@ -60,6 +60,12 @@ check-python-version:
 check-tag tag:
     cd "{{bridge}}" && uv run python "{{root}}/tools/check_release_tag.py" {{tag}}
 
+# Print the version a nightly build gets: the next release's number as a dated
+# .dev release, valid both as a Python version and as a Docker tag. Used by the
+# nightly workflow.
+nightly-version:
+    uv run --project "{{bridge}}" python "{{root}}/tools/nightly_version.py"
+
 # Prove that a git tag really does set the version, using a throwaway clone.
 check-version-from-tag:
     uv run --project "{{root}}/bridge" python "{{root}}/tools/check_version_from_tag.py"

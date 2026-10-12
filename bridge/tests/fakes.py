@@ -8,6 +8,7 @@ from typing import Any, ClassVar
 from checklists_bridge.models import Checklist, Link, SourceRef
 from checklists_bridge.providers.base import (
     ProviderAuthError,
+    ProviderUnavailableError,
     SourceNotFoundError,
     TaskProvider,
 )
@@ -17,9 +18,11 @@ from checklists_bridge.providers.registry import ConfigField, ProviderSpec
 #: data after the service has already built the provider.
 CONTENT: dict[str, list[str]] = {}
 NAMES: dict[str, str] = {}
-FAIL: dict[str, bool] = {"auth": False}
+FAIL: dict[str, bool] = {"auth": False, "linked": False}
 #: Source id -> the items of it that link to other sources (index -> targets).
 LINKS: dict[str, dict[int, tuple[str, ...]]] = {}
+#: Source ids a link may point at that no longer exist.
+GONE: set[str] = set()
 
 
 class FakeProvider(TaskProvider):
@@ -47,6 +50,14 @@ class FakeProvider(TaskProvider):
             ),
         )
 
+    def fetch_linked(self, source_id: str) -> Checklist | None:
+        # Whatever the fixture holds counts as a checklist, selected or not.
+        if source_id in GONE:
+            raise SourceNotFoundError(source_id)
+        if FAIL["linked"]:
+            raise ProviderUnavailableError("fake provider cannot reach linked notes")
+        return self.fetch(source_id) if source_id in CONTENT else None
+
     def _check(self) -> None:
         if FAIL["auth"]:
             raise ProviderAuthError("fake provider says no")
@@ -56,7 +67,9 @@ def reset(sources: Mapping[str, tuple[str, list[str]]] | None = None) -> None:
     CONTENT.clear()
     NAMES.clear()
     LINKS.clear()
+    GONE.clear()
     FAIL["auth"] = False
+    FAIL["linked"] = False
     for key, (name, items) in (sources or {}).items():
         NAMES[key] = name
         CONTENT[key] = list(items)

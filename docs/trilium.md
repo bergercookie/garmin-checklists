@@ -38,7 +38,7 @@ plain-text code notes both work.
 ## Linking one checklist to another
 
 A checklist item can **link to another note**, and if that note is a checklist
-you have imported too, its items are shown right there, under the item that
+(labelled `#checklist`), its items are shown right there, under the item that
 links to it. Use Trilium's own links: *Insert → Link*, or type `@` and pick a
 note, inside a checkbox item.
 
@@ -57,10 +57,14 @@ becomes, on the watch:
 - **The item becomes a heading.** It is shown in orange, in smaller type, with
   no box: UP and DOWN step over it, and it does not count towards `n/m done`.
   The linked list's items follow it, indented one step, each with its own box.
-- **Both notes have to be imported.** A link only counts if the note it points
-  at is one of your selected checklists. A link to anything else -- a web page,
-  a note that is not selected -- is left as an ordinary item with the link's
-  text.
+- **The linked note only has to be a checklist.** It does not have to be
+  imported: if the note a link points at is one the picker would offer -- it
+  matches **Which notes**, `#checklist` by default -- its items are included
+  anyway, and it is not added to the watch as a list of its own. A link to
+  anything else, such as a web page or a note without the label, is left as an
+  ordinary item with the link's text. (Only the first 200 matching notes are
+  considered, as in the picker, and at most 50 notes are fetched this way per
+  sync.)
 - **Links nest** up to three levels (a list that links to a list that links to
   a list). A link deeper than that, and a link back to a list that is already
   open, are left as ordinary items, so a loop can never make a list endless.
@@ -72,7 +76,7 @@ becomes, on the watch:
   list that links to it, from the next sync.
 - **Text around the link stays.** `[] Do the <link> before bed` becomes the
   heading *Do the Night routine before bed*.
-- If an item links to several notes, the first one that is an imported
+- If an item links to several notes, the first one that is a
   checklist is used.
 - Everything the link brings in counts towards the 100-item limit below, and
   anything past it is dropped from the end.
@@ -158,7 +162,7 @@ placeholder. It simply stops appearing in the picker.
 | `Trilium has nothing at /notes/…` | The note was deleted; untick it in the picker |
 | `is not a usable Trilium URL` | Missing `https://`, or `/etapi` left on the end |
 | A note is missing from the picker | No `#checklist` label, or it is protected |
-| A link shows as plain text, not as a heading | The note it points at is not imported, or is an ordinary web link, or would make the list include itself |
+| A link shows as plain text, not as a heading | The note it points at does not match **Which notes** (no `#checklist` label), or is an ordinary web link, or would make the list include itself |
 | An imported checklist is empty | Nothing in it is a checkbox — neither a toolbar checkbox nor a line starting `[]` |
 
 ## When Trilium is behind SSO

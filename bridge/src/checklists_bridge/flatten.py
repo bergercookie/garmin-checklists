@@ -8,8 +8,9 @@ bridge.
 
 The rules, each of which is a test in test_flatten.py:
 
-* A link only counts if it points at a checklist the bridge already serves
-  (``lookup``). A link to anything else stays an ordinary item.
+* A link only counts if it points at a checklist in ``lookup``: one of the
+  served lists, or one only linked to (the service adds those). A link to
+  anything else stays an ordinary item.
 * A list never contains itself, however indirectly: a link back to a checklist
   already being unrolled is left as an ordinary item rather than followed.
 * Nesting stops at :data:`MAX_LINK_DEPTH` levels, and the result at

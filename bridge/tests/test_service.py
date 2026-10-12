@@ -238,13 +238,89 @@ def test_refresh_unrolls_links_between_the_selected_checklists(service: Checklis
     assert service.snapshot_checklist("fake:b").items == ("Passport",)
 
 
-def test_a_link_to_a_checklist_that_is_not_selected_is_left_as_text(
+def test_a_link_to_a_checklist_that_is_not_selected_is_still_unrolled(
     service: ChecklistService,
 ) -> None:
     service.configure_provider("fake", {"token": "t"})
     service.set_selection("fake", ["a"])
     fakes.LINKS["a"] = {0: ("b",)}
     service.refresh()
+
+    assert service.snapshot_checklist("fake:a").items == ("Mask", "Passport", "Fins")
+    # Only the linking list is served: the one linked to was never selected.
+    assert [item.id for item in service.snapshot()[0]] == ["fake:a"]
+
+
+def test_a_link_to_something_that_is_not_a_checklist_is_left_as_text(
+    service: ChecklistService,
+) -> None:
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a"])
+    fakes.LINKS["a"] = {0: ("not-a-checklist",)}
+    report = service.refresh()
+    assert report.ok
+    assert service.snapshot_checklist("fake:a").items == ("Mask", "Fins")
+
+
+def test_a_link_to_a_note_that_was_deleted_is_left_as_text_without_an_error(
+    service: ChecklistService,
+) -> None:
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a"])
+    fakes.LINKS["a"] = {0: ("gone",)}
+    fakes.GONE.add("gone")
+    assert service.refresh().ok
+    assert service.snapshot_checklist("fake:a").items == ("Mask", "Fins")
+
+
+def test_a_linked_checklist_can_link_onwards_to_another_unselected_one(
+    service: ChecklistService,
+) -> None:
+    fakes.CONTENT["c"] = ["Charger"]
+    fakes.NAMES["c"] = "Gadgets"
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a"])
+    fakes.LINKS["a"] = {0: ("b",)}
+    fakes.LINKS["b"] = {0: ("c",)}
+    service.refresh()
+    flat = service.snapshot_checklist("fake:a")
+    assert flat.items == ("Mask", "Passport", "Charger", "Fins")
+    assert flat.depths == (0, 1, 2, 0)
+
+
+def test_a_link_cycle_through_unselected_lists_terminates(service: ChecklistService) -> None:
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a"])
+    fakes.LINKS["a"] = {0: ("b",)}
+    fakes.LINKS["b"] = {0: ("a",)}
+    service.refresh()
+    assert service.snapshot_checklist("fake:a").items == ("Mask", "Passport", "Fins")
+
+
+def test_only_so_many_unselected_lists_are_fetched_for_links(
+    service: ChecklistService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("checklists_bridge.service.MAX_LINKED", 1)
+    fakes.CONTENT["c"] = ["Charger"]
+    fakes.NAMES["c"] = "Gadgets"
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a"])
+    fakes.LINKS["a"] = {0: ("b",), 1: ("c",)}
+    service.refresh()
+    # The first lookup is used, the second is over the budget and stays text.
+    assert service.snapshot_checklist("fake:a").items == ("Mask", "Passport", "Fins")
+
+
+def test_a_provider_that_fails_on_a_linked_note_is_reported_not_hidden(
+    service: ChecklistService,
+) -> None:
+    service.configure_provider("fake", {"token": "t"})
+    service.set_selection("fake", ["a"])
+    fakes.LINKS["a"] = {0: ("b",)}
+    fakes.FAIL["linked"] = True
+    report = service.refresh()
+    assert not report.ok
+    assert "fake/b" in report.errors[0]
     assert service.snapshot_checklist("fake:a").items == ("Mask", "Fins")
 
 

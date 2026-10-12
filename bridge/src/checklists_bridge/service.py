@@ -18,12 +18,17 @@ from typing import Any
 from checklists_bridge.flatten import flatten
 from checklists_bridge.models import Checklist, SourceRef, qualify, unqualify
 from checklists_bridge.providers import REGISTRY, ProviderError, ProviderSpec, TaskProvider
+from checklists_bridge.providers.base import SourceNotFoundError
 from checklists_bridge.providers.local import LocalProvider
 from checklists_bridge.providers.registry import ProviderRegistry
 from checklists_bridge.security import new_device_token
 from checklists_bridge.storage import Database, State
 
 LOGGER = logging.getLogger(__name__)
+
+#: The most checklists one refresh will fetch only because something links to
+#: them, per provider.
+MAX_LINKED = 50
 
 
 class NotFoundError(Exception):
@@ -198,6 +203,9 @@ class ChecklistService:
         state = self._database.read()
         previous = {item.id: item for item in state.snapshot}
         checklists: list[Checklist] = []
+        #: Checklists that are only linked to, never selected: they supply items
+        #: to the lists that link to them and are not served in their own right.
+        linked: dict[str, Checklist] = {}
         errors: list[str] = []
 
         for provider_id, provider_state in sorted(state.providers.items()):
@@ -214,6 +222,7 @@ class ChecklistService:
                 )
                 continue
             with closing(provider):
+                first = len(checklists)
                 for source_id in provider_state.selection:
                     checklist_id = qualify(provider_id, source_id)
                     try:
@@ -224,11 +233,12 @@ class ChecklistService:
                             checklists.append(previous[checklist_id])
                         continue
                     checklists.append(replace(fetched, id=checklist_id))
+                linked.update(self._fetch_linked(provider, provider_id, checklists[first:], errors))
 
         # After every provider has answered, so a list can include one fetched
         # later in the same refresh -- and, when a fetch failed, the copy kept
         # from last time (already flattened, which flatten leaves as it is).
-        lookup = {item.id: item for item in checklists}
+        lookup = {**linked, **{item.id: item for item in checklists}}
         checklists = [flatten(item, lookup) for item in checklists]
 
         now = int(time.time())
@@ -244,6 +254,46 @@ class ChecklistService:
             if not errors:
                 fresh.snapshot_at = now
         return RefreshReport(checklists=tuple(checklists), errors=tuple(errors), at=now)
+
+    def _fetch_linked(
+        self,
+        provider: TaskProvider,
+        provider_id: str,
+        selected: Sequence[Checklist],
+        errors: list[str],
+    ) -> dict[str, Checklist]:
+        """Fetch the checklists that ``selected`` link to without selecting them.
+
+        Whatever the provider says is a checklist counts, whether or not it was
+        imported: linking to one is enough. Those can link onwards, so this
+        follows links until nothing new turns up, but only :data:`MAX_LINKED`
+        lookups in all, so a sprawling web of notes cannot make a refresh
+        unbounded. A target that is not a checklist, or no longer exists, is
+        simply not unrolled.
+        """
+        known = {item.id for item in selected}
+        found: dict[str, Checklist] = {}
+        asked: set[str] = set()
+        queue = list(selected)
+        while queue and len(asked) < MAX_LINKED:
+            current = queue.pop(0)
+            for link in current.links:
+                for target in link.targets:
+                    qualified = qualify(provider_id, target)
+                    if qualified in known or qualified in asked or len(asked) >= MAX_LINKED:
+                        continue
+                    asked.add(qualified)
+                    try:
+                        fetched = provider.fetch_linked(target)
+                    except SourceNotFoundError:
+                        continue
+                    except ProviderError as error:
+                        errors.append(f"{provider_id}/{target}: {error}")
+                        continue
+                    if fetched is not None:
+                        found[qualified] = replace(fetched, id=qualified)
+                        queue.append(found[qualified])
+        return found
 
     def snapshot(self) -> tuple[list[Checklist], int]:
         """The watch-facing checklists and when that snapshot was taken."""

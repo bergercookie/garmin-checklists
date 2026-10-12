@@ -298,3 +298,49 @@ def test_fetch_reports_which_items_link_to_other_notes() -> None:
     checklist = provider.fetch("abc123")
     assert checklist.items == ("Lights", "Night routine", "Sleep")
     assert [(link.index, link.targets) for link in checklist.links] == [(1, ("night456",))]
+
+
+def test_a_note_the_search_offers_can_be_fetched_as_a_linked_checklist() -> None:
+    provider = fake_trilium(
+        {
+            SEARCH: results(note("night456", "Night routine")),
+            "/etapi/notes/night456": note("night456", "Night routine"),
+            "/etapi/notes/night456/content": "<p>[] Brush teeth</p>",
+        }
+    )
+    linked = provider.fetch_linked("night456")
+    assert linked is not None
+    assert linked.items == ("Brush teeth",)
+
+
+def test_a_note_the_search_does_not_offer_is_not_a_linked_checklist() -> None:
+    provider = fake_trilium(
+        {
+            SEARCH: results(note("night456", "Night routine")),
+            "/etapi/notes/random789": note("random789", "Shopping"),
+            "/etapi/notes/random789/content": "<p>[] Milk</p>",
+        }
+    )
+    assert provider.fetch_linked("random789") is None
+
+
+def test_the_search_is_made_once_however_many_links_there_are() -> None:
+    searches = []
+
+    def route(request: httpx.Request) -> dict[str, Any]:
+        searches.append(request.url.path)
+        return results(note("a1", "A"), note("b2", "B"))
+
+    provider = fake_trilium(
+        {
+            SEARCH: route,
+            "/etapi/notes/a1": note("a1", "A"),
+            "/etapi/notes/a1/content": "<p>[] x</p>",
+            "/etapi/notes/b2": note("b2", "B"),
+            "/etapi/notes/b2/content": "<p>[] y</p>",
+        }
+    )
+    provider.fetch_linked("a1")
+    provider.fetch_linked("b2")
+    provider.fetch_linked("zzz")
+    assert len(searches) == 1

@@ -66,6 +66,17 @@ class TaskProvider(abc.ABC):
     def fetch(self, source_id: str) -> Checklist:
         """Return one source as a checklist. ``Checklist.id`` is the source id."""
 
+    def fetch_linked(self, source_id: str) -> Checklist | None:  # noqa: ARG002
+        """A checklist that was not selected, because another checklist links to it.
+
+        Returns None if ``source_id`` is not something this provider would
+        offer as a checklist, in which case the link is left as plain text.
+        The default knows of no such thing; a provider whose items can link to
+        other sources overrides it. Raises SourceNotFoundError for a link to
+        something that no longer exists.
+        """
+        return None
+
     def close(self) -> None:  # noqa: B027  (concrete on purpose, see below)
         """Release anything held open. Safe to call more than once.
 

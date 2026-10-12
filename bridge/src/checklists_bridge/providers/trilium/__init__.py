@@ -61,6 +61,8 @@ class TriliumProvider(TaskProvider):
         client: httpx.Client | None = None,
     ) -> None:
         self._search = search.strip() or DEFAULT_SEARCH
+        #: Ids of the notes the search offers, read once per provider instance.
+        self._offered: frozenset[str] | None = None
         self._api = Etapi(
             checked_base_url(base_url, service="Trilium", example="https://trilium.example.com"),
             token,
@@ -83,6 +85,17 @@ class TriliumProvider(TaskProvider):
             for note in notes
             if self._is_importable(note)
         ]
+
+    def fetch_linked(self, source_id: str) -> Checklist | None:
+        """A note that is a checklist -- one the search offers -- even if unselected.
+
+        "Is a checklist" means the same as it does in the picker: the note
+        matches the configured search, ``#checklist`` unless changed. A note
+        outside the first MAX_NOTES results is not found, as in the picker.
+        """
+        if self._offered is None:
+            self._offered = frozenset(source.id for source in self.list_sources())
+        return self.fetch(source_id) if source_id in self._offered else None
 
     def fetch(self, source_id: str) -> Checklist:
         # The note is read directly rather than resolved from the search
