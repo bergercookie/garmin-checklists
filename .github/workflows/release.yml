@@ -41,7 +41,7 @@ jobs:
         with:
           # hatch-vcs needs the tags, and a shallow clone has none.
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
           enable-cache: true
       - uses: extractions/setup-just@v4
