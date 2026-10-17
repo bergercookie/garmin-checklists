@@ -97,7 +97,7 @@ jobs:
           # The version is worked out from the latest tag, which a shallow clone
           # does not have.
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
           enable-cache: true
       - uses: extractions/setup-just@v4
