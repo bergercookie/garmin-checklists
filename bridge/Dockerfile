@@ -4,7 +4,7 @@
 # Everything comes from one registry (Docker Hub) so this still builds behind a
 # restrictive mirror or a proxy that only allows one upstream.
 
-FROM python:3.14-slim-trixie AS builder
+FROM python:3.15-slim-trixie AS builder
 
 # Pinned so a rebuild resolves the same way; bump deliberately. It has to be
 # new enough to read uv.lock's revision, so bump it with the lockfile.
@@ -46,7 +46,7 @@ RUN SETUPTOOLS_SCM_PRETEND_VERSION="${APP_VERSION}" \
     uv sync --locked --no-dev --no-editable
 
 
-FROM python:3.14-slim-trixie AS runtime
+FROM python:3.15-slim-trixie AS runtime
 
 # 127.0.0.1 is the right default on a laptop and the wrong one in a container.
 ENV CHECKLISTS_HOST=0.0.0.0 \
